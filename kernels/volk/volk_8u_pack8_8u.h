@@ -29,7 +29,7 @@
  *
  * <b>Dispatcher Prototype</b>
  * \code
- * void volk_8u_pack8_8u(unsigned char* out_buf, const unsigned char* in_buf, unsigned int num_points)
+ * void volk_8u_pack8_8u(unsigned char* out_buf, const unsigned char* in_buf, unsigned int num_bytes)
  * \endcode
  *
  * \b Inputs
@@ -43,6 +43,8 @@
  * \b Example
  * \code
  * int N = 10000;
+ *
+ * <+-- initialize an input and output buffer --+>
  *
  * volk_8u_pack8_8u(out_buf, in_buf, num_points);
  *
@@ -73,20 +75,23 @@ pack_byte(unsigned char* out_buf, const unsigned char* in_buf)
 }
 
 static inline void
-print_vector(unsigned char* out_buf, const unsigned char* in_buf){
+print_vector(unsigned char* out_buf, const unsigned char* in_buf)
+{
   int i;
-  printf("result: %x %x for: ", (int)out_buf[0], (int)out_buf[1]);
-  for(i = 0; i < 16; i ++){
+  printf("result: %x %x for: ", (int) out_buf[0], (int) out_buf[1]);
+  for(i = 0; i < 16; i++){
     unsigned char b = in_buf[i];
-    printf("%x, ", (int)b);
+    printf("%x, ", (int) b);
   }
   printf("\n");
 }
 
-
 #ifdef LV_HAVE_GENERIC
 
-static inline void volk_8u_pack8_8u_generic(unsigned char* out_buf, const unsigned char* in_buf, unsigned int num_bytes){
+static inline void
+volk_8u_pack8_8u_generic(unsigned char* out_buf, const unsigned char* in_buf,
+                         unsigned int num_bytes)
+{
   unsigned int byte;
   const unsigned char* inputPtr = in_buf;
   unsigned char* outputPtr = out_buf;
@@ -104,7 +109,10 @@ static inline void volk_8u_pack8_8u_generic(unsigned char* out_buf, const unsign
 #include <tmmintrin.h>
 
 // shuffle_epi8 only available with SSSE3.
-static inline void volk_8u_pack8_8u_u_ssse3(unsigned char* out_buf, const unsigned char* in_buf, unsigned int num_bytes){
+static inline void
+volk_8u_pack8_8u_u_ssse3(unsigned char* out_buf, const unsigned char* in_buf,
+                         unsigned int num_bytes)
+{
   const unsigned int fast_num_bytes = num_bytes & 0xFFffFFfe; // make sure we can process 2 bytes at a time.
   unsigned int byte = 0;
   const unsigned char* inputPtr = in_buf;
@@ -116,7 +124,7 @@ static inline void volk_8u_pack8_8u_u_ssse3(unsigned char* out_buf, const unsign
 
   for(; byte < fast_num_bytes; byte += 2){
     // welcome to little endian hell.
-    loaded = _mm_loadu_si128((__m128i*) inputPtr);
+    loaded = _mm_loadu_si128((__m128i *) inputPtr);
     loaded = _mm_shuffle_epi8(loaded, reverse_mask);
     loaded = _mm_and_si128(loaded, bit_mask);
     compared = _mm_cmpeq_epi8(loaded, bit_mask);
@@ -146,7 +154,10 @@ static inline void volk_8u_pack8_8u_u_ssse3(unsigned char* out_buf, const unsign
 #ifdef LV_HAVE_SSSE3
 #include <tmmintrin.h>
 
-static inline void volk_8u_pack8_8u_a_ssse3(unsigned char* out_buf, const unsigned char* in_buf, unsigned int num_bytes){
+static inline void
+volk_8u_pack8_8u_a_ssse3(unsigned char* out_buf, const unsigned char* in_buf,
+                         unsigned int num_bytes)
+{
   const unsigned int fast_num_bytes = num_bytes & 0xFFffFFfe; // make sure we can process 2 bytes at a time.
   unsigned int byte = 0;
   const unsigned char* inputPtr = in_buf;
@@ -156,11 +167,12 @@ static inline void volk_8u_pack8_8u_a_ssse3(unsigned char* out_buf, const unsign
   __m128i reverse_mask, bit_mask;
 
   reverse_mask = _mm_set_epi8(8, 9, 10, 11, 12, 13, 14, 15, 0, 1, 2, 3, 4, 5, 6, 7);
-  bit_mask = _mm_set_epi8(0x01, 0x01, 0x01, 0x01, 0x01, 0x01, 0x01, 0x01, 0x01, 0x01, 0x01, 0x01, 0x01, 0x01, 0x01, 0x01);
+  bit_mask = _mm_set_epi8(0x01, 0x01, 0x01, 0x01, 0x01, 0x01, 0x01, 0x01, 0x01, 0x01, 0x01, 0x01,
+                          0x01, 0x01, 0x01, 0x01);
 
   for(; byte < fast_num_bytes; byte += 2){
     // welcome to little endian hell.
-    loaded = _mm_load_si128((__m128i*) inputPtr);
+    loaded = _mm_load_si128((__m128i *) inputPtr);
     reversed = _mm_shuffle_epi8(loaded, reverse_mask);
     masked = _mm_and_si128(reversed, bit_mask);
     compared = _mm_cmpeq_epi8(masked, bit_mask);

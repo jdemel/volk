@@ -28,7 +28,9 @@
 
 #ifdef LV_HAVE_GENERIC
 static inline void
-volk_8u_pack8puppet_8u_generic(unsigned char* out_buf, const unsigned char* in_buf, unsigned int num_bytes){
+volk_8u_pack8puppet_8u_generic(unsigned char* out_buf, const unsigned char* in_buf,
+                               unsigned int num_bytes)
+{
   // 'pack_k_bits' specifies the number of packed bytes. For tests only an eighth can be calculated.
   volk_8u_pack8_8u_generic(out_buf, in_buf, num_bytes / 8);
 }
@@ -36,7 +38,9 @@ volk_8u_pack8puppet_8u_generic(unsigned char* out_buf, const unsigned char* in_b
 
 #ifdef LV_HAVE_SSSE3
 static inline void
-volk_8u_pack8puppet_8u_u_ssse3(unsigned char* out_buf, const unsigned char* in_buf, unsigned int num_bytes){
+volk_8u_pack8puppet_8u_u_ssse3(unsigned char* out_buf, const unsigned char* in_buf,
+                               unsigned int num_bytes)
+{
   volk_8u_pack8_8u_u_ssse3(out_buf, in_buf, num_bytes / 8);
 }
 #endif /* LV_HAVE_SSSE3 */
@@ -49,7 +53,9 @@ volk_8u_pack8puppet_8u_u_ssse3(unsigned char* out_buf, const unsigned char* in_b
 
 #ifdef LV_HAVE_SSSE3
 static inline void
-volk_8u_pack8puppet_8u_a_ssse3(unsigned char* out_buf, const unsigned char* in_buf, unsigned int num_bytes){
+volk_8u_pack8puppet_8u_a_ssse3(unsigned char* out_buf, const unsigned char* in_buf,
+                               unsigned int num_bytes)
+{
   volk_8u_pack8_8u_a_ssse3(out_buf, in_buf, num_bytes / 8);
 }
 #endif /* LV_HAVE_SSSE3 */

@@ -50,8 +50,8 @@
  * \endcode
  */
 
-#ifndef VOLK_KERNELS_VOLK_VOLK_8U_UNPACK8_8U_H_
-#define VOLK_KERNELS_VOLK_VOLK_8U_UNPACK8_8U_H_
+#ifndef VOLK_KERNELS_VOLK_VOLK_8U_UNPACK8_8U_U_H_
+#define VOLK_KERNELS_VOLK_VOLK_8U_UNPACK8_8U_U_H_
 #include <stdio.h>
 
 static inline void
@@ -67,23 +67,25 @@ unpack_byte(unsigned char* out_buf, const unsigned char* in_buf)
   *outputPtr++ = (*inputPtr & 0x04) >> 2;
   *outputPtr++ = (*inputPtr & 0x02) >> 1;
   *outputPtr = (*inputPtr & 0x01);
-
 }
 
 static inline void
-print_vector_unpack(unsigned char* out_buf, const unsigned char* in_buf){
+print_vector_unpack(unsigned char* out_buf, const unsigned char* in_buf)
+{
   int i;
-  printf("source: %x %x result: ", (int)in_buf[0], (int)in_buf[1]);
-  for(i = 0; i < 16; i ++){
+  printf("source: %x %x result: ", (int) in_buf[0], (int) in_buf[1]);
+  for(i = 0; i < 16; i++){
     unsigned char b = out_buf[i];
-    printf("%x, ", (int)b);
+    printf("%x, ", (int) b);
   }
   printf("\n");
 }
 
 #ifdef LV_HAVE_GENERIC
-
-static inline void volk_8u_unpack8_8u_generic(unsigned char* out_buf, const unsigned char* in_buf, unsigned int num_bytes){
+static inline void
+volk_8u_unpack8_8u_generic(unsigned char* out_buf, const unsigned char* in_buf,
+                           unsigned int num_bytes)
+{
   unsigned int byte;
   const unsigned char* inputPtr = in_buf;
   unsigned char* outputPtr = out_buf;
@@ -99,24 +101,101 @@ static inline void volk_8u_unpack8_8u_generic(unsigned char* out_buf, const unsi
 #ifdef LV_HAVE_SSSE3
 #include <tmmintrin.h>
 
-static inline void volk_8u_unpack8_8u_u_ssse3(unsigned char* out_buf, const unsigned char* in_buf, unsigned int num_bytes){
+static inline void
+volk_8u_unpack8_8u_u_ssse3(unsigned char* out_buf, const unsigned char* in_buf,
+                           unsigned int num_bytes)
+{
   const unsigned int fast_num_bytes = num_bytes & 0xFFffFFfe;
-  unsigned int byte;
+  const unsigned int sf_num_bytes = fast_num_bytes / 8;
+  unsigned int byte = 0;
   const unsigned char* inputPtr = in_buf;
   unsigned char* outputPtr = out_buf;
 
-  __m128i loaded;
+  __m128i loaded, packed, unpacked;
   const __m128i reverse_mask = _mm_set_epi8(1, 3, 5, 7, 9, 11, 13, 15, 0, 2, 4, 6, 8, 10, 12, 14);
-  const __m128i bit_mask = _mm_set_epi8(0x01, 0x02, 0x04, 0x08, 0x10, 0x20, 0x40, 0x80, 0x01, 0x02, 0x04, 0x08, 0x10, 0x20, 0x40, 0x80);
+  const __m128i l0_mask = _mm_set_epi8(1, 1, 1, 1, 1, 1, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0);
+  const __m128i l1_mask = _mm_set_epi8(3, 3, 3, 3, 3, 3, 3, 3, 2, 2, 2, 2, 2, 2, 2, 2);
+  const __m128i l2_mask = _mm_set_epi8(5, 5, 5, 5, 5, 5, 5, 5, 4, 4, 4, 4, 4, 4, 4, 4);
+  const __m128i l3_mask = _mm_set_epi8(7, 7, 7, 7, 7, 7, 7, 7, 6, 6, 6, 6, 6, 6, 6, 6);
+  const __m128i l4_mask = _mm_set_epi8(9, 9, 9, 9, 9, 9, 9, 9, 8, 8, 8, 8, 8, 8, 8, 8);
+  const __m128i l5_mask = _mm_set_epi8(11, 11, 11, 11, 11, 11, 11, 11, 10, 10, 10, 10, 10, 10, 10,
+                                       10);
+  const __m128i l6_mask = _mm_set_epi8(13, 13, 13, 13, 13, 13, 13, 13, 12, 12, 12, 12, 12, 12, 12,
+                                       12);
+  const __m128i l7_mask = _mm_set_epi8(15, 15, 15, 15, 15, 15, 15, 15, 14, 14, 14, 14, 14, 14, 14,
+                                       14);
+  const __m128i bit_mask = _mm_set_epi8(0x01, 0x02, 0x04, 0x08, 0x10, 0x20, 0x40, 0x80, 0x01, 0x02,
+                                        0x04, 0x08, 0x10, 0x20, 0x40, 0x80);
   const __m128i ones = _mm_set1_epi8(1);
 
-  for(byte = 0; byte < fast_num_bytes; byte += 2){
-    loaded = _mm_set1_epi16(*((short*) inputPtr));
-    loaded = _mm_shuffle_epi8(loaded, reverse_mask);
+  for(; byte < sf_num_bytes; byte += 16){
+    packed = _mm_loadu_si128((__m128i *) inputPtr);
+    inputPtr += 16;
+
+    loaded = _mm_shuffle_epi8(packed, l0_mask);
     loaded = _mm_and_si128(loaded, bit_mask);
     loaded = _mm_cmpeq_epi8(loaded, bit_mask);
-    loaded = _mm_and_si128(loaded, ones);
-    _mm_storeu_si128((__m128i*) outputPtr, loaded);
+    unpacked = _mm_and_si128(loaded, ones);
+    _mm_storeu_si128((__m128i *) outputPtr, unpacked);
+    outputPtr += 16;
+
+    loaded = _mm_shuffle_epi8(packed, l1_mask);
+    loaded = _mm_and_si128(loaded, bit_mask);
+    loaded = _mm_cmpeq_epi8(loaded, bit_mask);
+    unpacked = _mm_and_si128(loaded, ones);
+    _mm_storeu_si128((__m128i *) outputPtr, unpacked);
+    outputPtr += 16;
+
+    loaded = _mm_shuffle_epi8(packed, l2_mask);
+    loaded = _mm_and_si128(loaded, bit_mask);
+    loaded = _mm_cmpeq_epi8(loaded, bit_mask);
+    unpacked = _mm_and_si128(loaded, ones);
+    _mm_storeu_si128((__m128i *) outputPtr, unpacked);
+    outputPtr += 16;
+
+    loaded = _mm_shuffle_epi8(packed, l3_mask);
+    loaded = _mm_and_si128(loaded, bit_mask);
+    loaded = _mm_cmpeq_epi8(loaded, bit_mask);
+    unpacked = _mm_and_si128(loaded, ones);
+    _mm_storeu_si128((__m128i *) outputPtr, unpacked);
+    outputPtr += 16;
+
+    loaded = _mm_shuffle_epi8(packed, l4_mask);
+    loaded = _mm_and_si128(loaded, bit_mask);
+    loaded = _mm_cmpeq_epi8(loaded, bit_mask);
+    unpacked = _mm_and_si128(loaded, ones);
+    _mm_storeu_si128((__m128i *) outputPtr, unpacked);
+    outputPtr += 16;
+
+    loaded = _mm_shuffle_epi8(packed, l5_mask);
+    loaded = _mm_and_si128(loaded, bit_mask);
+    loaded = _mm_cmpeq_epi8(loaded, bit_mask);
+    unpacked = _mm_and_si128(loaded, ones);
+    _mm_storeu_si128((__m128i *) outputPtr, unpacked);
+    outputPtr += 16;
+
+    loaded = _mm_shuffle_epi8(packed, l6_mask);
+    loaded = _mm_and_si128(loaded, bit_mask);
+    loaded = _mm_cmpeq_epi8(loaded, bit_mask);
+    unpacked = _mm_and_si128(loaded, ones);
+    _mm_storeu_si128((__m128i *) outputPtr, unpacked);
+    outputPtr += 16;
+
+    loaded = _mm_shuffle_epi8(packed, l7_mask);
+    loaded = _mm_and_si128(loaded, bit_mask);
+    loaded = _mm_cmpeq_epi8(loaded, bit_mask);
+    unpacked = _mm_and_si128(loaded, ones);
+    _mm_storeu_si128((__m128i *) outputPtr, unpacked);
+    outputPtr += 16;
+  }
+
+  for(; byte < fast_num_bytes; byte += 2){
+    packed = _mm_set1_epi16(*((short*) inputPtr));
+    loaded = _mm_shuffle_epi8(packed, reverse_mask);
+    loaded = _mm_and_si128(loaded, bit_mask);
+    loaded = _mm_cmpeq_epi8(loaded, bit_mask);
+    unpacked = _mm_and_si128(loaded, ones);
+    _mm_storeu_si128((__m128i *) outputPtr, unpacked);
     inputPtr += 2;
     outputPtr += 16;
   }
@@ -130,4 +209,47 @@ static inline void volk_8u_unpack8_8u_u_ssse3(unsigned char* out_buf, const unsi
 
 #endif /* LV_HAVE_SSSE3 */
 
-#endif /* VOLK_KERNELS_VOLK_VOLK_8U_UNPACK8_8U_H_ */
+#endif /* VOLK_KERNELS_VOLK_VOLK_8U_UNPACK8_8U_U_H_ */
+
+#ifndef VOLK_KERNELS_VOLK_VOLK_8U_UNPACK8_8U_A_H_
+#define VOLK_KERNELS_VOLK_VOLK_8U_UNPACK8_8U_A_H_
+
+#ifdef LV_HAVE_SSSE3
+#include <tmmintrin.h>
+
+static inline void
+volk_8u_unpack8_8u_a_ssse3(unsigned char* out_buf, const unsigned char* in_buf,
+                           unsigned int num_bytes)
+{
+  const unsigned int fast_num_bytes = num_bytes & 0xFFffFFfe;
+  unsigned int byte = 0;
+  const unsigned char* inputPtr = in_buf;
+  unsigned char* outputPtr = out_buf;
+
+  __m128i packed, loaded, unpacked;
+  const __m128i reverse_mask = _mm_set_epi8(1, 3, 5, 7, 9, 11, 13, 15, 0, 2, 4, 6, 8, 10, 12, 14);
+  const __m128i bit_mask = _mm_set_epi8(0x01, 0x02, 0x04, 0x08, 0x10, 0x20, 0x40, 0x80, 0x01, 0x02,
+                                        0x04, 0x08, 0x10, 0x20, 0x40, 0x80);
+  const __m128i ones = _mm_set1_epi8(1);
+
+  for(; byte < fast_num_bytes; byte += 2){
+    packed = _mm_set1_epi16(*((short*) inputPtr));
+    loaded = _mm_shuffle_epi8(packed, reverse_mask);
+    loaded = _mm_and_si128(loaded, bit_mask);
+    loaded = _mm_cmpeq_epi8(loaded, bit_mask);
+    unpacked = _mm_and_si128(loaded, ones);
+    _mm_store_si128((__m128i *) outputPtr, unpacked);
+    inputPtr += 2;
+    outputPtr += 16;
+  }
+
+  for(; byte < num_bytes; ++byte){
+    unpack_byte(outputPtr, inputPtr);
+    outputPtr += 8;
+    inputPtr++;
+  }
+}
+
+#endif /* LV_HAVE_SSSE3 */
+
+#endif /* VOLK_KERNELS_VOLK_VOLK_8U_UNPACK8_8U_A_H_ */
