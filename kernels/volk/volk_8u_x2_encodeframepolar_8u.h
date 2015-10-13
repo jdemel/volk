@@ -82,7 +82,7 @@ volk_8u_x2_encodeframepolar_8u_generic(unsigned char* frame, unsigned char* temp
 #endif /* LV_HAVE_GENERIC */
 
 #ifdef LV_HAVE_SSSE3
-#include <tmmintrin.h>
+#include <volk/volk_ssse3_intrinsics.h>
 
 static inline void
 volk_8u_x2_encodeframepolar_8u_u_ssse3(unsigned char* frame, unsigned char* temp,
@@ -99,11 +99,8 @@ volk_8u_x2_encodeframepolar_8u_u_ssse3(unsigned char* frame, unsigned char* temp
   unsigned int branch;
   unsigned int bit;
 
-  // prepare constants
-  const __m128i mask_stage1 = _mm_set_epi8(0x0, 0xFF, 0x0, 0xFF, 0x0, 0xFF, 0x0, 0xFF, 0x0, 0xFF, 0x0, 0xFF, 0x0, 0xFF, 0x0, 0xFF);
-
   // get some SIMD registers to play with.
-  __m128i r_frame0, r_temp0, shifted;
+  __m128i r_frame0, r_temp0;
 
   {
     __m128i r_frame1, r_temp1;
@@ -121,14 +118,10 @@ volk_8u_x2_encodeframepolar_8u_u_ssse3(unsigned char* frame, unsigned char* temp
           r_temp1 = _mm_loadu_si128((__m128i *) temp_ptr);
           temp_ptr += 16;
 
-          shifted = _mm_srli_si128(r_temp0, 1);
-          shifted = _mm_and_si128(shifted, mask_stage1);
-          r_temp0 = _mm_xor_si128(shifted, r_temp0);
+          r_temp0 = _mm_encodepolarstage_si128(r_temp0);
           r_temp0 = _mm_shuffle_epi8(r_temp0, shuffle_separate);
 
-          shifted = _mm_srli_si128(r_temp1, 1);
-          shifted = _mm_and_si128(shifted, mask_stage1);
-          r_temp1 = _mm_xor_si128(shifted, r_temp1);
+          r_temp1 = _mm_encodepolarstage_si128(r_temp1);
           r_temp1 = _mm_shuffle_epi8(r_temp1, shuffle_separate);
 
           r_frame0 = _mm_unpacklo_epi64(r_temp0, r_temp1);
@@ -149,48 +142,18 @@ volk_8u_x2_encodeframepolar_8u_u_ssse3(unsigned char* frame, unsigned char* temp
     }
   }
 
-  // This last part requires at least 16-bit frames.
-  // Smaller frames are useless for SIMD optimization anyways. Just choose GENERIC!
-
   // reset pointers to correct positions.
   frame_ptr = frame;
   temp_ptr = temp;
 
-  // load first chunk.
-  // Tests show a 1-2% gain compared to loading a new chunk and using it right after.
-  r_temp0 = _mm_loadu_si128((__m128i*) temp_ptr);
-  temp_ptr += 16;
-
-  const __m128i shuffle_stage4 = _mm_setr_epi8(0, 8, 4, 12, 2, 10, 6, 14, 1, 9, 5, 13, 3, 11, 7, 15);
-  const __m128i mask_stage4 = _mm_set_epi8(0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF);
-  const __m128i mask_stage3 = _mm_set_epi8(0x0, 0x0, 0x0, 0x0, 0xFF, 0xFF, 0xFF, 0xFF, 0x0, 0x0, 0x0, 0x0, 0xFF, 0xFF, 0xFF, 0xFF);
-  const __m128i mask_stage2 = _mm_set_epi8(0x0, 0x0, 0xFF, 0xFF, 0x0, 0x0, 0xFF, 0xFF, 0x0, 0x0, 0xFF, 0xFF, 0x0, 0x0, 0xFF, 0xFF);
-
+// This last part requires at least 16-bit frames.
+// Smaller frames are useless for SIMD optimization anyways. Just choose GENERIC!
   for(branch = 0; branch < num_branches; ++branch){
-    // shuffle once for bit-reversal.
-    r_temp0 = _mm_shuffle_epi8(r_temp0, shuffle_stage4);
-
-    shifted = _mm_srli_si128(r_temp0, 8);
-    shifted = _mm_and_si128(shifted, mask_stage4);
-    r_frame0 = _mm_xor_si128(shifted, r_temp0);
-
-    // start loading next chunk.
     r_temp0 = _mm_loadu_si128((__m128i*) temp_ptr);
     temp_ptr += 16;
 
-    shifted = _mm_srli_si128(r_frame0, 4);
-    shifted = _mm_and_si128(shifted, mask_stage3);
-    r_frame0 = _mm_xor_si128(shifted, r_frame0);
+    r_frame0 = _mm_16bitencodepolar_si128(r_temp0);
 
-    shifted = _mm_srli_si128(r_frame0, 2);
-    shifted = _mm_and_si128(shifted, mask_stage2);
-    r_frame0 = _mm_xor_si128(shifted, r_frame0);
-
-    shifted = _mm_srli_si128(r_frame0, 1);
-    shifted = _mm_and_si128(shifted, mask_stage1);
-    r_frame0 = _mm_xor_si128(shifted, r_frame0);
-
-    // store result of chunk.
     _mm_storeu_si128((__m128i*)frame_ptr, r_frame0);
     frame_ptr += 16;
   }
@@ -204,7 +167,7 @@ volk_8u_x2_encodeframepolar_8u_u_ssse3(unsigned char* frame, unsigned char* temp
 #define VOLK_KERNELS_VOLK_VOLK_8U_X2_ENCODEFRAMEPOLAR_8U_A_H_
 
 #ifdef LV_HAVE_SSSE3
-#include <tmmintrin.h>
+#include <volk/volk_ssse3_intrinsics.h>
 
 static inline void
 volk_8u_x2_encodeframepolar_8u_a_ssse3(unsigned char* frame, unsigned char* temp,
@@ -221,11 +184,8 @@ volk_8u_x2_encodeframepolar_8u_a_ssse3(unsigned char* frame, unsigned char* temp
   unsigned int branch;
   unsigned int bit;
 
-  // prepare constants
-  const __m128i mask_stage1 = _mm_set_epi8(0x0, 0xFF, 0x0, 0xFF, 0x0, 0xFF, 0x0, 0xFF, 0x0, 0xFF, 0x0, 0xFF, 0x0, 0xFF, 0x0, 0xFF);
-
   // get some SIMD registers to play with.
-  __m128i r_frame0, r_temp0, shifted;
+  __m128i r_frame0, r_temp0;
 
   {
     __m128i r_frame1, r_temp1;
@@ -243,14 +203,10 @@ volk_8u_x2_encodeframepolar_8u_a_ssse3(unsigned char* frame, unsigned char* temp
           r_temp1 = _mm_load_si128((__m128i *) temp_ptr);
           temp_ptr += 16;
 
-          shifted = _mm_srli_si128(r_temp0, 1);
-          shifted = _mm_and_si128(shifted, mask_stage1);
-          r_temp0 = _mm_xor_si128(shifted, r_temp0);
+          r_temp0 = _mm_encodepolarstage_si128(r_temp0);
           r_temp0 = _mm_shuffle_epi8(r_temp0, shuffle_separate);
 
-          shifted = _mm_srli_si128(r_temp1, 1);
-          shifted = _mm_and_si128(shifted, mask_stage1);
-          r_temp1 = _mm_xor_si128(shifted, r_temp1);
+          r_temp1 = _mm_encodepolarstage_si128(r_temp1);
           r_temp1 = _mm_shuffle_epi8(r_temp1, shuffle_separate);
 
           r_frame0 = _mm_unpacklo_epi64(r_temp0, r_temp1);
@@ -271,48 +227,18 @@ volk_8u_x2_encodeframepolar_8u_a_ssse3(unsigned char* frame, unsigned char* temp
     }
   }
 
-  // This last part requires at least 16-bit frames.
-  // Smaller frames are useless for SIMD optimization anyways. Just choose GENERIC!
-
   // reset pointers to correct positions.
   frame_ptr = frame;
   temp_ptr = temp;
 
-  // load first chunk.
-  // Tests show a 1-2% gain compared to loading a new chunk and using it right after.
-  r_temp0 = _mm_load_si128((__m128i*) temp_ptr);
-  temp_ptr += 16;
-
-  const __m128i shuffle_stage4 = _mm_setr_epi8(0, 8, 4, 12, 2, 10, 6, 14, 1, 9, 5, 13, 3, 11, 7, 15);
-  const __m128i mask_stage4 = _mm_set_epi8(0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF);
-  const __m128i mask_stage3 = _mm_set_epi8(0x0, 0x0, 0x0, 0x0, 0xFF, 0xFF, 0xFF, 0xFF, 0x0, 0x0, 0x0, 0x0, 0xFF, 0xFF, 0xFF, 0xFF);
-  const __m128i mask_stage2 = _mm_set_epi8(0x0, 0x0, 0xFF, 0xFF, 0x0, 0x0, 0xFF, 0xFF, 0x0, 0x0, 0xFF, 0xFF, 0x0, 0x0, 0xFF, 0xFF);
-
+// This last part requires at least 16-bit frames.
+// Smaller frames are useless for SIMD optimization anyways. Just choose GENERIC!
   for(branch = 0; branch < num_branches; ++branch){
-    // shuffle once for bit-reversal.
-    r_temp0 = _mm_shuffle_epi8(r_temp0, shuffle_stage4);
-
-    shifted = _mm_srli_si128(r_temp0, 8);
-    shifted = _mm_and_si128(shifted, mask_stage4);
-    r_frame0 = _mm_xor_si128(shifted, r_temp0);
-
-    // start loading next chunk.
     r_temp0 = _mm_load_si128((__m128i*) temp_ptr);
     temp_ptr += 16;
 
-    shifted = _mm_srli_si128(r_frame0, 4);
-    shifted = _mm_and_si128(shifted, mask_stage3);
-    r_frame0 = _mm_xor_si128(shifted, r_frame0);
+    r_frame0 = _mm_16bitencodepolar_si128(r_temp0);
 
-    shifted = _mm_srli_si128(r_frame0, 2);
-    shifted = _mm_and_si128(shifted, mask_stage2);
-    r_frame0 = _mm_xor_si128(shifted, r_frame0);
-
-    shifted = _mm_srli_si128(r_frame0, 1);
-    shifted = _mm_and_si128(shifted, mask_stage1);
-    r_frame0 = _mm_xor_si128(shifted, r_frame0);
-
-    // store result of chunk.
     _mm_store_si128((__m128i*)frame_ptr, r_frame0);
     frame_ptr += 16;
   }
