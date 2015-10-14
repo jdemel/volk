@@ -201,7 +201,7 @@ volk_32f_8u_polarbutterfly_32f_generic(float* llrs, unsigned char* u,
 #endif /* LV_HAVE_GENERIC */
 
 #ifdef LV_HAVE_AVX
-#include <immintrin.h>
+//#include <immintrin.h>
 #include <volk/volk_avx_intrinsics.h>
 
 /*
@@ -236,8 +236,6 @@ volk_32f_8u_polarbutterfly_32f_u_avx(float* llrs, unsigned char* u,
   float* dst_llr_ptr;
 
   __m256 src0, src1, dst;
-  __m256 part0, part1;
-  __m256 llr0, llr1;
 
   if(row){ // not necessary for ZERO row. == first bit to be decoded.
     // first do bit combination for all stages
@@ -283,9 +281,8 @@ volk_32f_8u_polarbutterfly_32f_u_avx(float* llrs, unsigned char* u,
   }
 
   const int min_stage = stage > 2 ? stage : 2;
-  const __m256 sign_mask = _mm256_set1_ps(-0.0);
-  const __m256 abs_mask = _mm256_andnot_ps(sign_mask, _mm256_castsi256_ps(_mm256_set1_epi8(0xff)));
-  __m256 sign;
+  const __m256 sign_mask = _mm256_set1_ps(-0.0); // bit pattern: 0x80 00 00 00
+  const __m256 abs_mask = _mm256_andnot_ps(_mm256_set1_ps(-0.0), _mm256_set1_ps(NAN)); // bit pattern: 0x7f ff ff ff
 
   int el;
   while(min_stage < loop_stage){
@@ -297,26 +294,13 @@ volk_32f_8u_polarbutterfly_32f_u_avx(float* llrs, unsigned char* u,
       src1 = _mm256_loadu_ps(src_llr_ptr);
       src_llr_ptr += 8;
 
-      // deinterleave values
-      part0 = _mm256_permute2f128_ps(src0, src1, 0x20);
-      part1 = _mm256_permute2f128_ps(src0, src1, 0x31);
-      llr0 = _mm256_shuffle_ps(part0, part1, 0x88);
-      llr1 = _mm256_shuffle_ps(part0, part1, 0xdd);
-
-      // calculate result
-      sign = _mm256_xor_ps(_mm256_and_ps(llr0, sign_mask), _mm256_and_ps(llr1, sign_mask));
-      dst = _mm256_min_ps(_mm256_and_ps(llr0, abs_mask), _mm256_and_ps(llr1, abs_mask));
-      dst = _mm256_or_ps(dst, sign);
-
-//      dst = _mm256_polarcalceven_ps(src0, src1);
+      dst = _mm256_polarcalceven_ps(src0, src1, sign_mask, abs_mask);
 
       _mm256_storeu_ps(dst_llr_ptr, dst);
       dst_llr_ptr += 8;
     }
-
     --loop_stage;
     stage_size >>= 1;
-
   }
 
   // for stages < 3 vectors are too small!.

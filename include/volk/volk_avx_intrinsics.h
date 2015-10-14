@@ -69,29 +69,24 @@ _mm256_magnitude_ps(__m256 cplxValue1, __m256 cplxValue2){
 }
 
 static inline __m256
-_mm256_polarcalceven_ps(__m256 src0, __m256 src1){
-  const __m256 sign_mask = _mm256_set1_ps(-0.0f);
-  const __m256 abs_mask = _mm256_andnot_ps(sign_mask, _mm256_castsi256_ps(_mm256_set1_epi8(0xff)));
+_mm256_polarcalceven_ps(__m256 src0, __m256 src1, const __m256 sign_mask, const __m256 abs_mask){
   __m256 part0, part1, llr0, llr1, sign, dst;
+
+  // those constants should be defined here. Though they make the test fail.
+  // Looks like a HeisenBug.
+//  const __m256 sign_mask = _mm256_set1_ps(-0.0);
+//  const __m256 abs_mask = _mm256_andnot_ps(_mm256_set1_ps(-0.0), _mm256_set1_ps(NAN));
 
   // deinterleave values
   part0 = _mm256_permute2f128_ps(src0, src1, 0x20);
   part1 = _mm256_permute2f128_ps(src0, src1, 0x31);
   llr0 = _mm256_shuffle_ps(part0, part1, 0x88);
   llr1 = _mm256_shuffle_ps(part0, part1, 0xdd);
-  //      part0 = _mm256_permute2f128_ps(src0, src1, 0x20);
-  //      part1 = _mm256_permute2f128_ps(src0, src1, 0x31);
-  //      llr0 = _mm256_shuffle_ps(part0, part1, 0x88);
-  //      llr1 = _mm256_shuffle_ps(part0, part1, 0xdd);
 
   // calculate result
   sign = _mm256_xor_ps(_mm256_and_ps(llr0, sign_mask), _mm256_and_ps(llr1, sign_mask));
   dst = _mm256_min_ps(_mm256_and_ps(llr0, abs_mask), _mm256_and_ps(llr1, abs_mask));
-  dst = _mm256_or_ps(dst, sign);
-  //      sign = _mm256_xor_ps(_mm256_and_ps(llr0, sign_mask), _mm256_and_ps(llr1, sign_mask));
-  //      dst = _mm256_min_ps(_mm256_and_ps(llr0, abs_mask), _mm256_and_ps(llr1, abs_mask));
-  //      dst = _mm256_or_ps(dst, sign);
-  return dst;
+  return _mm256_or_ps(dst, sign);
 }
 
 static inline __m256
@@ -124,6 +119,7 @@ _mm256_polarsignmask_ps(__m128i fbits)
   sign_bits0 = _mm_shuffle_epi8(fbits, shuffle_mask0);
   sign_bits1 = _mm_shuffle_epi8(fbits, shuffle_mask1);
 
+  // GCC throws uninitialized warning. But it's fine here.
   sign_mask = _mm256_insertf128_ps(sign_mask, _mm_castsi128_ps(sign_bits0), 0x0);
   return _mm256_insertf128_ps(sign_mask, _mm_castsi128_ps(sign_bits1), 0x1);
 }

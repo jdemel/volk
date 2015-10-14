@@ -124,6 +124,4 @@ volk_32f_8u_polarbutterflypuppet_32f_u_avx(float* llrs, const float* input, unsi
 }
 #endif /* LV_HAVE_AVX */
 
-
-
 #endif /* VOLK_KERNELS_VOLK_VOLK_32F_8U_POLARBUTTERFLYPUPPET_32F_H_ */
