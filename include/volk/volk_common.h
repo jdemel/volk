@@ -77,7 +77,7 @@
 // C-linkage declaration macros
 // FIXME: due to the usage of complex.h, require gcc for c-linkage
 ////////////////////////////////////////////////////////////////////////
-#if defined(__cplusplus) && (__GNUC__)
+#if defined(__cplusplus)
 #define __VOLK_DECL_BEGIN extern "C" {
 #define __VOLK_DECL_END }
 #else
