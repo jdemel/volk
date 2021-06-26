@@ -22,17 +22,19 @@
 #ifndef INCLUDED_VOLK_RUNTIME
 #define INCLUDED_VOLK_RUNTIME
 
-#include <volk/volk_typedefs.h>
+
 #include <volk/volk_config_fixed.h>
 #include <volk/volk_common.h>
-#include <volk/volk_complex.h>
-#include <volk/volk_malloc.h>
+
 #include <volk/volk_version.h>
 
 #include <stdlib.h>
 #include <stdbool.h>
 
 __VOLK_DECL_BEGIN
+#include <volk/volk_malloc.h>
+#include <volk/volk_complex.h>
+#include <volk/volk_typedefs.h>
 
 typedef struct volk_func_desc
 {

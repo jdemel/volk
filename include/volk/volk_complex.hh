@@ -20,11 +20,11 @@
  * Boston, MA 02110-1301, USA.
  */
 
-#ifndef INCLUDED_VOLK_COMPLEX_H
-#define INCLUDED_VOLK_COMPLEX_H
+#ifndef INCLUDED_VOLK_COMPLEX_HH
+#define INCLUDED_VOLK_COMPLEX_HH
 
 /*!
- * \brief Provide typedefs and operators for all complex types in C.
+ * \brief Provide typedefs and operators for all complex types in C++.
  *
  * The typedefs encompass all signed integer and floating point types.
  * Each operator function is intended to work across all data types.
@@ -39,28 +39,39 @@
  * - lv_conj - take the conjugate of the complex number
  */
 
-// tgmath.h includes complex.h
-// https://en.cppreference.com/w/c/numeric/tgmath
-#include <tgmath.h>
 
-typedef char complex lv_8sc_t;
-typedef short complex lv_16sc_t;
-typedef long complex lv_32sc_t;
-typedef long long complex lv_64sc_t;
-typedef float complex lv_32fc_t;
-typedef double complex lv_64fc_t;
+#include <stdint.h>
+#include <complex>
 
-#define lv_cmake(r, i) ((r) + _Complex_I * (i))
+typedef std::complex<int8_t> lv_8sc_t;
+typedef std::complex<int16_t> lv_16sc_t;
+typedef std::complex<int32_t> lv_32sc_t;
+typedef std::complex<int64_t> lv_64sc_t;
+typedef std::complex<float> lv_32fc_t;
+typedef std::complex<double> lv_64fc_t;
 
-// We expect C11!
-// With C99 and later, we can rely on type-generic functions.
-// Older C standards would always return double for `creal`, `cimag` or `conj`.
+template <typename T>
+inline std::complex<T> lv_cmake(const T& r, const T& i)
+{
+    return std::complex<T>(r, i);
+}
 
-#define lv_creal(x) (creal(x))
+template <typename T>
+inline typename T::value_type lv_creal(const T& x)
+{
+    return x.real();
+}
 
-#define lv_cimag(x) (cimag(x))
+template <typename T>
+inline typename T::value_type lv_cimag(const T& x)
+{
+    return x.imag();
+}
 
-#define lv_conj(x) (conj(x))
+template <typename T>
+inline T lv_conj(const T& x)
+{
+    return std::conj(x);
+}
 
-
-#endif /* INCLUDE_VOLK_COMPLEX_H */
+#endif /* INCLUDE_VOLK_COMPLEX_HH */

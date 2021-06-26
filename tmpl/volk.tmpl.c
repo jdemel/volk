@@ -20,9 +20,9 @@
  */
 
 #include <volk/volk_common.h>
-#include "volk_machines.h"
 #include <volk/volk_typedefs.h>
 #include <volk/volk_cpu.h>
+#include "volk_machines.h"
 #include "volk_rank_archs.h"
 #include <volk/volk.h>
 #include <stdio.h>

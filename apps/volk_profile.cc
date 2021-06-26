@@ -33,7 +33,9 @@
 #endif
 #include <stddef.h>          // for size_t
 #include <sys/stat.h>        // for stat
+extern "C" {
 #include <volk/volk_prefs.h> // for volk_get_config_path
+}
 #include <fstream>           // IWYU pragma: keep
 #include <iostream>          // for operator<<, basic_ostream
 #include <map>               // for map, map<>::iterator

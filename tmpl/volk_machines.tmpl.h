@@ -28,7 +28,6 @@
 #include <stdbool.h>
 #include <stdlib.h>
 
-__VOLK_DECL_BEGIN
 
 struct volk_machine {
     const unsigned int caps; //capabilities (i.e., archs compiled into this machine, in the volk_get_lvarch format)
@@ -50,6 +49,5 @@ extern struct volk_machine volk_machine_${machine.name};
 #endif
 %endfor
 
-__VOLK_DECL_END
 
 #endif //INCLUDED_LIBVOLK_MACHINES_H

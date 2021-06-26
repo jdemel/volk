@@ -5,7 +5,6 @@
 #include <stdlib.h>
 #include <volk/volk_common.h>
 
-__VOLK_DECL_BEGIN
 
 typedef struct volk_arch_pref {
     char name[128];   // name of the kernel
@@ -25,6 +24,5 @@ VOLK_API void volk_get_config_path(char*, bool);
 ////////////////////////////////////////////////////////////////////////
 VOLK_API size_t volk_load_preferences(volk_arch_pref_t**);
 
-__VOLK_DECL_END
 
 #endif // INCLUDED_VOLK_PREFS_H

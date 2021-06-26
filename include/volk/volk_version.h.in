@@ -23,10 +23,6 @@
 #ifndef INCLUDED_VOLK_VERSION_H
 #define INCLUDED_VOLK_VERSION_H
 
-#include <volk/volk_common.h>
-
-__VOLK_DECL_BEGIN
-
 /*
  * define macros for the Volk version, which can then be used by any
  * project that #include's this header, e.g., to determine whether
@@ -45,6 +41,5 @@ __VOLK_DECL_BEGIN
 
 #define VOLK_VERSION @VOLK_VERSION_MAJOR@@VOLK_VERSION_MINOR@@VOLK_VERSION_MAINT@
 
-__VOLK_DECL_END
 
 #endif /* INCLUDED_VOLK_VERSION_H */

@@ -26,7 +26,6 @@
 #include <stdlib.h>
 #include <volk/volk_common.h>
 
-__VOLK_DECL_BEGIN
 
 /*!
  * \brief Allocate \p size bytes of data aligned to \p alignment.
@@ -70,6 +69,5 @@ VOLK_API void* volk_malloc(size_t size, size_t alignment);
  */
 VOLK_API void volk_free(void* aptr);
 
-__VOLK_DECL_END
 
 #endif /* INCLUDED_VOLK_MALLOC_H */

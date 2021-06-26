@@ -24,11 +24,15 @@
 #include <config.h>
 #endif
 
+#include "volk/volk.h"           // for volk_get_alignment, volk_get_machine
+extern "C" {
 #include <volk/constants.h> // for volk_available_machines, volk_c_com...
+}
+
 #include <iostream>         // for operator<<, endl, cout, ostream
 #include <string>           // for string
 
-#include "volk/volk.h"           // for volk_get_alignment, volk_get_machine
+
 #include "volk_option_helpers.h" // for option_list, option_t
 
 void print_alignment()

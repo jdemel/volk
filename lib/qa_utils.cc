@@ -1,8 +1,11 @@
 #include "qa_utils.h"
-#include <volk/volk.h>
+// #include <volk/volk.h>
 
 #include <volk/volk.h>        // for volk_func_desc_t
+
+extern "C" {
 #include <volk/volk_malloc.h> // for volk_free, volk_m...
+}
 
 #include <assert.h>    // for assert
 #include <stdint.h>    // for uint16_t, uint64_t
