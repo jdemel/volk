@@ -341,6 +341,10 @@ gen_template(${PROJECT_SOURCE_DIR}/tmpl/volk_config_fixed.tmpl.h ${PROJECT_BINAR
 gen_template(${PROJECT_SOURCE_DIR}/tmpl/volk_machines.tmpl.h     ${PROJECT_BINARY_DIR}/lib/volk_machines.h)
 gen_template(${PROJECT_SOURCE_DIR}/tmpl/volk_machines.tmpl.c     ${PROJECT_BINARY_DIR}/lib/volk_machines.c)
 
+gen_template(${PROJECT_SOURCE_DIR}/tmpl/qa_volk.tmpl.h           ${PROJECT_BINARY_DIR}/include/volk/qa_volk.h)
+gen_template(${PROJECT_SOURCE_DIR}/tmpl/qa_volk.tmpl.cc          ${PROJECT_BINARY_DIR}/lib/qa_volk.cc)
+
+
 set(BASE_CFLAGS NONE)
 string(TOUPPER ${CMAKE_BUILD_TYPE} CBTU)
 message(STATUS "BUILD TYPE = ${CBTU}")
@@ -623,7 +627,7 @@ if(ENABLE_TESTING)
         VOLK_GEN_TEST(volk_test_all
             SOURCES ${CMAKE_CURRENT_SOURCE_DIR}/testqa.cc
             ${CMAKE_CURRENT_SOURCE_DIR}/qa_utils.cc
-            TARGET_DEPS volk
+            TARGET_DEPS volk fmt::fmt
           )
     endif()
     foreach(kernel ${h_files})
@@ -633,3 +637,10 @@ if(ENABLE_TESTING)
     endforeach()
 
 endif(ENABLE_TESTING)
+
+
+VOLK_GEN_TEST(volk_qa_test
+SOURCES ${CMAKE_CURRENT_SOURCE_DIR}/volk_qa_test_main.cc
+${PROJECT_BINARY_DIR}/lib/qa_volk.cc
+TARGET_DEPS volk fmt::fmt
+)

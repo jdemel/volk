@@ -185,6 +185,9 @@ class kernel_class(object):
         self.arglist_types = ', '.join([a[0] for a in self.args])
         self.arglist_full = ', '.join(['%s %s'%a for a in self.args])
         self.arglist_names = ', '.join([a[1] for a in self.args])
+        self.variable_args = [(a[0][6:] if a[0].startswith('const ') else a[0], a[1]) for a in self.args]
+        self.annotated_args = [('vector' if '*' in a[0] else 'scalar', a[0].replace('*', '').rstrip(' '), a[1]) for a in self.variable_args]
+        # self.vector_args = list(filter(lambda x: '*' in x[0], self.variable_args))
 
     def get_impls(self, archs):
         archs = set(archs)
@@ -207,4 +210,39 @@ kernels = list(map(kernel_class, kernel_files))
 
 if __name__ == '__main__':
     print(kernels)
-    
+    # for k in kernels:
+    #     print(k.name)
+    #     print(k.args)
+    #     print(k.variable_args)
+    #     print(k.annotated_args)
+
+    data_types = set()
+    arg_names = set()
+    for k in kernels:
+        # print(k.name, k.args)
+        for a in k.args:
+            data_types.add(a[0])
+            arg_names.add(a[1])
+
+    sorted_types = sorted(list(data_types))
+    print('\n'.join(sorted_types))
+    types = set()
+    for d in sorted_types:
+        dv = d[6:] if d.startswith('const ') else d
+        types.add(dv)
+        print(f'{d:<32}\t{dv:8}')
+    sorted_types = sorted(list(types))
+    print('\n'.join(sorted_types))
+
+    for k in kernels[0:20]:
+        print(k)
+        print(k.annotated_args)
+
+    # for k in kernels:
+    #     # print(k.name, k.args)
+    #     for a in k.args:
+    #         if 'unsigned int' in a[0]:
+    #             print(f'{k.name:<64}-> {a[1]}: {a[0]}')
+
+    # for i, k in enumerate(kernels):
+    #     print(f'{i:3}: {k.name:<48}->{k.args[-1][1]}: {k.args[-1][0]}')

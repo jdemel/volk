@@ -36,8 +36,8 @@
  *
  * <b>Dispatcher Prototype</b>
  * \code
- * void volk_32f_index_max_16u(uint16_t* target, const float* src0, uint32_t num_points)
- * \endcode
+ * void volk_32f_index_max_16u(uint16_t* target, const float* src0, unsigned int
+ * num_points) \endcode
  *
  * \b Inputs
  * \li src0: The input vector of floats.
@@ -80,7 +80,7 @@
 #include <immintrin.h>
 
 static inline void
-volk_32f_index_max_16u_a_avx(uint16_t* target, const float* src0, uint32_t num_points)
+volk_32f_index_max_16u_a_avx(uint16_t* target, const float* src0, unsigned int num_points)
 {
     num_points = (num_points > USHRT_MAX) ? USHRT_MAX : num_points;
 
@@ -143,8 +143,9 @@ volk_32f_index_max_16u_a_avx(uint16_t* target, const float* src0, uint32_t num_p
 #ifdef LV_HAVE_SSE4_1
 #include <smmintrin.h>
 
-static inline void
-volk_32f_index_max_16u_a_sse4_1(uint16_t* target, const float* src0, uint32_t num_points)
+static inline void volk_32f_index_max_16u_a_sse4_1(uint16_t* target,
+                                                   const float* src0,
+                                                   unsigned int num_points)
 {
     num_points = (num_points > USHRT_MAX) ? USHRT_MAX : num_points;
 
@@ -210,7 +211,7 @@ volk_32f_index_max_16u_a_sse4_1(uint16_t* target, const float* src0, uint32_t nu
 #include <xmmintrin.h>
 
 static inline void
-volk_32f_index_max_16u_a_sse(uint16_t* target, const float* src0, uint32_t num_points)
+volk_32f_index_max_16u_a_sse(uint16_t* target, const float* src0, unsigned int num_points)
 {
     num_points = (num_points > USHRT_MAX) ? USHRT_MAX : num_points;
 
@@ -275,8 +276,9 @@ volk_32f_index_max_16u_a_sse(uint16_t* target, const float* src0, uint32_t num_p
 
 #ifdef LV_HAVE_GENERIC
 
-static inline void
-volk_32f_index_max_16u_generic(uint16_t* target, const float* src0, uint32_t num_points)
+static inline void volk_32f_index_max_16u_generic(uint16_t* target,
+                                                  const float* src0,
+                                                  unsigned int num_points)
 {
     num_points = (num_points > USHRT_MAX) ? USHRT_MAX : num_points;
 
@@ -312,7 +314,7 @@ volk_32f_index_max_16u_generic(uint16_t* target, const float* src0, uint32_t num
 #include <immintrin.h>
 
 static inline void
-volk_32f_index_max_16u_u_avx(uint16_t* target, const float* src0, uint32_t num_points)
+volk_32f_index_max_16u_u_avx(uint16_t* target, const float* src0, unsigned int num_points)
 {
     num_points = (num_points > USHRT_MAX) ? USHRT_MAX : num_points;
 

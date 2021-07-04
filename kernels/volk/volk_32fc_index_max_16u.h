@@ -88,7 +88,7 @@
 
 static inline void volk_32fc_index_max_16u_a_avx2_variant_0(uint16_t* target,
                                                             lv_32fc_t* src0,
-                                                            uint32_t num_points)
+                                                            unsigned int num_points)
 {
     num_points = (num_points > USHRT_MAX) ? USHRT_MAX : num_points;
 
@@ -148,7 +148,7 @@ static inline void volk_32fc_index_max_16u_a_avx2_variant_0(uint16_t* target,
 
 static inline void volk_32fc_index_max_16u_a_avx2_variant_1(uint16_t* target,
                                                             lv_32fc_t* src0,
-                                                            uint32_t num_points)
+                                                            unsigned int num_points)
 {
     num_points = (num_points > USHRT_MAX) ? USHRT_MAX : num_points;
 
@@ -207,7 +207,7 @@ static inline void volk_32fc_index_max_16u_a_avx2_variant_1(uint16_t* target,
 #include <xmmintrin.h>
 
 static inline void
-volk_32fc_index_max_16u_a_sse3(uint16_t* target, lv_32fc_t* src0, uint32_t num_points)
+volk_32fc_index_max_16u_a_sse3(uint16_t* target, lv_32fc_t* src0, unsigned int num_points)
 {
     num_points = (num_points > USHRT_MAX) ? USHRT_MAX : num_points;
     const uint32_t num_bytes = num_points * 8;
@@ -321,8 +321,9 @@ volk_32fc_index_max_16u_a_sse3(uint16_t* target, lv_32fc_t* src0, uint32_t num_p
 #endif /*LV_HAVE_SSE3*/
 
 #ifdef LV_HAVE_GENERIC
-static inline void
-volk_32fc_index_max_16u_generic(uint16_t* target, lv_32fc_t* src0, uint32_t num_points)
+static inline void volk_32fc_index_max_16u_generic(uint16_t* target,
+                                                   lv_32fc_t* src0,
+                                                   unsigned int num_points)
 {
     num_points = (num_points > USHRT_MAX) ? USHRT_MAX : num_points;
 
@@ -334,7 +335,7 @@ volk_32fc_index_max_16u_generic(uint16_t* target, lv_32fc_t* src0, uint32_t num_
 
     uint32_t i = 0;
 
-    for (; i<num_bytes>> 3; ++i) {
+    for (; i < num_bytes >> 3; ++i) {
         sq_dist =
             lv_creal(src0[i]) * lv_creal(src0[i]) + lv_cimag(src0[i]) * lv_cimag(src0[i]);
 
@@ -365,7 +366,7 @@ volk_32fc_index_max_16u_generic(uint16_t* target, lv_32fc_t* src0, uint32_t num_
 
 static inline void volk_32fc_index_max_16u_u_avx2_variant_0(uint16_t* target,
                                                             lv_32fc_t* src0,
-                                                            uint32_t num_points)
+                                                            unsigned int num_points)
 {
     num_points = (num_points > USHRT_MAX) ? USHRT_MAX : num_points;
 
@@ -425,7 +426,7 @@ static inline void volk_32fc_index_max_16u_u_avx2_variant_0(uint16_t* target,
 
 static inline void volk_32fc_index_max_16u_u_avx2_variant_1(uint16_t* target,
                                                             lv_32fc_t* src0,
-                                                            uint32_t num_points)
+                                                            unsigned int num_points)
 {
     num_points = (num_points > USHRT_MAX) ? USHRT_MAX : num_points;
 

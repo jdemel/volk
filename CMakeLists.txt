@@ -30,6 +30,8 @@ set(CMAKE_CXX_STANDARD 11)
 
 enable_testing()
 
+find_package(fmt)
+
 
 ########################################################################
 # Common compile flags

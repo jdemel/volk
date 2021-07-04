@@ -30,8 +30,8 @@
  *
  * <b>Dispatcher Prototype</b>
  * \code
- * void volk_32f_index_max_32u(uint32_t* target, const float* src0, uint32_t num_points)
- * \endcode
+ * void volk_32f_index_max_32u(uint32_t* target, const float* src0, unsigned int
+ * num_points) \endcode
  *
  * \b Inputs
  * \li src0: The input vector of floats.
@@ -72,8 +72,9 @@
 #ifdef LV_HAVE_SSE4_1
 #include <smmintrin.h>
 
-static inline void
-volk_32f_index_max_32u_a_sse4_1(uint32_t* target, const float* src0, uint32_t num_points)
+static inline void volk_32f_index_max_32u_a_sse4_1(uint32_t* target,
+                                                   const float* src0,
+                                                   unsigned int num_points)
 {
     if (num_points > 0) {
         uint32_t number = 0;
@@ -140,7 +141,7 @@ volk_32f_index_max_32u_a_sse4_1(uint32_t* target, const float* src0, uint32_t nu
 #include <xmmintrin.h>
 
 static inline void
-volk_32f_index_max_32u_a_sse(uint32_t* target, const float* src0, uint32_t num_points)
+volk_32f_index_max_32u_a_sse(uint32_t* target, const float* src0, unsigned int num_points)
 {
     if (num_points > 0) {
         uint32_t number = 0;
@@ -208,7 +209,7 @@ volk_32f_index_max_32u_a_sse(uint32_t* target, const float* src0, uint32_t num_p
 #include <immintrin.h>
 
 static inline void
-volk_32f_index_max_32u_a_avx(uint32_t* target, const float* src0, uint32_t num_points)
+volk_32f_index_max_32u_a_avx(uint32_t* target, const float* src0, unsigned int num_points)
 {
     if (num_points > 0) {
         uint32_t number = 0;
@@ -271,7 +272,7 @@ volk_32f_index_max_32u_a_avx(uint32_t* target, const float* src0, uint32_t num_p
 #include <arm_neon.h>
 
 static inline void
-volk_32f_index_max_32u_neon(uint32_t* target, const float* src0, uint32_t num_points)
+volk_32f_index_max_32u_neon(uint32_t* target, const float* src0, unsigned int num_points)
 {
     if (num_points > 0) {
         uint32_t number = 0;
@@ -334,8 +335,9 @@ volk_32f_index_max_32u_neon(uint32_t* target, const float* src0, uint32_t num_po
 
 #ifdef LV_HAVE_GENERIC
 
-static inline void
-volk_32f_index_max_32u_generic(uint32_t* target, const float* src0, uint32_t num_points)
+static inline void volk_32f_index_max_32u_generic(uint32_t* target,
+                                                  const float* src0,
+                                                  unsigned int num_points)
 {
     if (num_points > 0) {
         float max = src0[0];
@@ -371,7 +373,7 @@ volk_32f_index_max_32u_generic(uint32_t* target, const float* src0, uint32_t num
 #include <immintrin.h>
 
 static inline void
-volk_32f_index_max_32u_u_avx(uint32_t* target, const float* src0, uint32_t num_points)
+volk_32f_index_max_32u_u_avx(uint32_t* target, const float* src0, unsigned int num_points)
 {
     if (num_points > 0) {
         uint32_t number = 0;
@@ -433,8 +435,9 @@ volk_32f_index_max_32u_u_avx(uint32_t* target, const float* src0, uint32_t num_p
 #ifdef LV_HAVE_SSE4_1
 #include <smmintrin.h>
 
-static inline void
-volk_32f_index_max_32u_u_sse4_1(uint32_t* target, const float* src0, uint32_t num_points)
+static inline void volk_32f_index_max_32u_u_sse4_1(uint32_t* target,
+                                                   const float* src0,
+                                                   unsigned int num_points)
 {
     if (num_points > 0) {
         uint32_t number = 0;
@@ -496,7 +499,7 @@ volk_32f_index_max_32u_u_sse4_1(uint32_t* target, const float* src0, uint32_t nu
 #include <xmmintrin.h>
 
 static inline void
-volk_32f_index_max_32u_u_sse(uint32_t* target, const float* src0, uint32_t num_points)
+volk_32f_index_max_32u_u_sse(uint32_t* target, const float* src0, unsigned int num_points)
 {
     if (num_points > 0) {
         uint32_t number = 0;

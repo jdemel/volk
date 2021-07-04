@@ -31,12 +31,23 @@
 #include "kernel_tests.h"      // for init_test_list
 #include "qa_utils.h"          // for volk_test_case_t, volk_test_results_t
 #include "volk/volk_complex.h" // for lv_32fc_t
+#include <fmt/core.h>
 #include <volk/volk.h>
 
 void print_qa_xml(std::vector<volk_test_results_t> results, unsigned int nfails);
 
+
+// bool run_test_case(volk_test_case_t& test_case){
+
+// }
+
 int main(int argc, char* argv[])
 {
+    for (int i = 0; i < argc; i++) {
+        fmt::print("{}\t{}\n", i, std::string(argv[i]));
+    }
+
+
     bool qa_ret_val = 0;
 
     float def_tol = 1e-6;
@@ -52,22 +63,19 @@ int main(int argc, char* argv[])
     std::vector<volk_test_results_t> results;
 
     if (argc > 1) {
+        const auto kernel_name = std::string(argv[1]);
         for (unsigned int ii = 0; ii < test_cases.size(); ++ii) {
-            if (std::string(argv[1]) == test_cases[ii].name()) {
+            if (kernel_name == test_cases[ii].name()) {
                 volk_test_case_t test_case = test_cases[ii];
-                if (run_volk_tests(test_case.desc(),
-                                   test_case.kernel_ptr(),
-                                   test_case.name(),
-                                   test_case.test_parameters(),
-                                   &results,
-                                   test_case.puppet_master_name())) {
-                    return 1;
-                } else {
-                    return 0;
-                }
+                return run_volk_tests(test_case.desc(),
+                                      test_case.kernel_ptr(),
+                                      test_case.name(),
+                                      test_case.test_parameters(),
+                                      &results,
+                                      test_case.puppet_master_name());
             }
         }
-        std::cerr << "Did not run a test for kernel: " << std::string(argv[1]) << " !"
+        std::cerr << "Did not run a test for kernel: " << kernel_name << " !"
                   << std::endl;
         return 0;
 
@@ -121,6 +129,7 @@ int main(int argc, char* argv[])
  */
 void print_qa_xml(std::vector<volk_test_results_t> results, unsigned int nfails)
 {
+    fmt::print("Create XML results file: {}\n", nfails);
     std::ofstream qa_file;
     qa_file.open(".unittest/kernels.xml");
 
