@@ -383,6 +383,8 @@ if(ENABLE_MODTOOL)
   add_subdirectory(python/volk_modtool)
 endif()
 
+add_subdirectory(profile)
+
 ########################################################################
 # And the LGPL license check
 ########################################################################

@@ -97,6 +97,9 @@ extern VOLK_API ${kern.pname} ${kern.name}_a;
 //! A function pointer to the fastest unaligned implementation
 extern VOLK_API ${kern.pname} ${kern.name}_u;
 
+//! Get function pointer to specific implementation
+extern VOLK_API ${kern.pname} ${kern.name}_func_manual(const char* impl_name);
+
 //! Call into a specific implementation given by name
 extern VOLK_API void ${kern.name}_manual(${kern.arglist_full}, const char* impl_name);
 
