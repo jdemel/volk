@@ -17,14 +17,21 @@
 
 add_subdirectory(googletest)
 
+find_package(fmt REQUIRED)
+
+file(GLOB volk_test_files "test_*.cc")
+
 add_executable(
   volk_tests
-  test_volk_32fc_x2_multiply_32fc.cc
+  volk_test.cc
+  ${volk_test_files}
 )
+
 target_link_libraries(
   volk_tests
   gtest_main
   volk
+  fmt::fmt
 )
 
 include(GoogleTest)
