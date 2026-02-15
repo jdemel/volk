@@ -68,13 +68,8 @@ static inline void volk_64f_x2_multiply_64f_generic(double* cVector,
                                                     const double* bVector,
                                                     unsigned int num_points)
 {
-    double* cPtr = cVector;
-    const double* aPtr = aVector;
-    const double* bPtr = bVector;
-    unsigned int number = 0;
-
-    for (number = 0; number < num_points; number++) {
-        *cPtr++ = (*aPtr++) * (*bPtr++);
+    for (unsigned int number = 0; number < num_points; number++) {
+        *cVector++ = (*aVector++) * (*bVector++);
     }
 }
 
@@ -176,35 +171,57 @@ static inline void volk_64f_x2_multiply_64f_u_avx(double* cVector,
                                                   const double* bVector,
                                                   unsigned int num_points)
 {
-    unsigned int number = 0;
     const unsigned int quarter_points = num_points / 4;
 
-    double* cPtr = cVector;
-    const double* aPtr = aVector;
-    const double* bPtr = bVector;
+    for (unsigned int number = 0; number < quarter_points; ++number) {
+        __m256d aVal = _mm256_loadu_pd(aVector);
+        __m256d bVal = _mm256_loadu_pd(bVector);
 
-    __m256d aVal, bVal, cVal;
-    for (; number < quarter_points; number++) {
+        __m256d cVal = _mm256_mul_pd(aVal, bVal);
 
-        aVal = _mm256_loadu_pd(aPtr);
-        bVal = _mm256_loadu_pd(bPtr);
+        _mm256_storeu_pd(cVector, cVal);
 
-        cVal = _mm256_mul_pd(aVal, bVal);
-
-        _mm256_storeu_pd(cPtr, cVal); // Store the results back into the C container
-
-        aPtr += 4;
-        bPtr += 4;
-        cPtr += 4;
+        aVector += 4;
+        bVector += 4;
+        cVector += 4;
     }
 
-    number = quarter_points * 4;
-    for (; number < num_points; number++) {
-        *cPtr++ = (*aPtr++) * (*bPtr++);
+    for (unsigned int number = quarter_points * 4; number < num_points; ++number) {
+        *cVector++ = (*aVector++) * (*bVector++);
     }
 }
 
 #endif /* LV_HAVE_AVX */
+
+#ifdef LV_HAVE_AVX512F
+#include <immintrin.h>
+
+static inline void volk_64f_x2_multiply_64f_u_avx512f(double* cVector,
+                                                  const double* aVector,
+                                                  const double* bVector,
+                                                  unsigned int num_points)
+{
+    const unsigned int eigth_points = num_points / 8;
+
+    for (unsigned int number = 0; number < eigth_points; ++number) {
+        __m512d aVal = _mm512_loadu_pd(aVector);
+        __m512d bVal = _mm512_loadu_pd(bVector);
+
+        __m512d cVal = _mm512_mul_pd(aVal, bVal);
+
+        _mm512_storeu_pd(cVector, cVal);
+
+        aVector += 8;
+        bVector += 8;
+        cVector += 8;
+    }
+
+    for (unsigned int number = eigth_points * 8; number < num_points; ++number) {
+        *cVector++ = (*aVector++) * (*bVector++);
+    }
+}
+
+#endif /* LV_HAVE_AVX512F */
 
 /*
  * Aligned versions
@@ -258,35 +275,57 @@ static inline void volk_64f_x2_multiply_64f_a_avx(double* cVector,
                                                   const double* bVector,
                                                   unsigned int num_points)
 {
-    unsigned int number = 0;
     const unsigned int quarter_points = num_points / 4;
 
-    double* cPtr = cVector;
-    const double* aPtr = aVector;
-    const double* bPtr = bVector;
+    for (unsigned int number = 0; number < quarter_points; ++number) {
+        __m256d aVal = _mm256_load_pd(aVector);
+        __m256d bVal = _mm256_load_pd(bVector);
 
-    __m256d aVal, bVal, cVal;
-    for (; number < quarter_points; number++) {
+        __m256d cVal = _mm256_mul_pd(aVal, bVal);
 
-        aVal = _mm256_load_pd(aPtr);
-        bVal = _mm256_load_pd(bPtr);
+        _mm256_store_pd(cVector, cVal);
 
-        cVal = _mm256_mul_pd(aVal, bVal);
-
-        _mm256_store_pd(cPtr, cVal); // Store the results back into the C container
-
-        aPtr += 4;
-        bPtr += 4;
-        cPtr += 4;
+        aVector += 4;
+        bVector += 4;
+        cVector += 4;
     }
 
-    number = quarter_points * 4;
-    for (; number < num_points; number++) {
-        *cPtr++ = (*aPtr++) * (*bPtr++);
+    for (unsigned int number = quarter_points * 4; number < num_points; ++number) {
+        *cVector++ = (*aVector++) * (*bVector++);
     }
 }
 
 #endif /* LV_HAVE_AVX */
+
+#ifdef LV_HAVE_AVX512F
+#include <immintrin.h>
+
+static inline void volk_64f_x2_multiply_64f_a_avx512f(double* cVector,
+                                                  const double* aVector,
+                                                  const double* bVector,
+                                                  unsigned int num_points)
+{
+    const unsigned int eigth_points = num_points / 8;
+
+    for (unsigned int number = 0; number < eigth_points; ++number) {
+        __m512d aVal = _mm512_load_pd(aVector);
+        __m512d bVal = _mm512_load_pd(bVector);
+
+        __m512d cVal = _mm512_mul_pd(aVal, bVal);
+
+        _mm512_store_pd(cVector, cVal);
+
+        aVector += 8;
+        bVector += 8;
+        cVector += 8;
+    }
+
+    for (unsigned int number = eigth_points * 8; number < num_points; ++number) {
+        *cVector++ = (*aVector++) * (*bVector++);
+    }
+}
+
+#endif /* LV_HAVE_AVX512F */
 
 #ifdef LV_HAVE_RVV
 #include <riscv_vector.h>
