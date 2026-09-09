@@ -7,6 +7,54 @@
  * SPDX-License-Identifier: LGPL-3.0-or-later
  */
 
+/*!
+ * \page volk_8ic_x2_multiply_conjugate_16ic
+ *
+ * \b Overview
+ *
+ * Multiplies the one complex vector with the complex conjugate of the
+ * second complex vector and stores their results in the third vector.
+ * The inputs are 8-bit complex integers (lv_8sc_t) and the output is
+ * 16-bit complex integers (lv_16sc_t). The real part is saturated to
+ * SHRT_MAX on overflow.
+ *
+ * <b>Dispatcher Prototype</b>
+ * \code
+ * void volk_8ic_x2_multiply_conjugate_16ic(lv_16sc_t* cVector,
+ *     const lv_8sc_t* aVector, const lv_8sc_t* bVector,
+ *     unsigned int num_points);
+ * \endcode
+ *
+ * \b Inputs
+ * \li aVector: One of the complex vectors to be multiplied.
+ * \li bVector: The complex vector which will be converted to complex conjugate and
+ * multiplied. \li num_points: The number of complex values in aVector and bVector to be
+ * multiplied together and stored into cVector.
+ *
+ * \b Outputs
+ * \li cVector: The complex vector where the results will be stored.
+ *
+ * \b Example
+ * \code
+ *   int N = 10;
+ *   unsigned int alignment = volk_get_alignment();
+ *   lv_8sc_t* in_a = (lv_8sc_t*)volk_malloc(sizeof(lv_8sc_t)*N, alignment);
+ *   lv_8sc_t* in_b = (lv_8sc_t*)volk_malloc(sizeof(lv_8sc_t)*N, alignment);
+ *   lv_16sc_t* out = (lv_16sc_t*)volk_malloc(sizeof(lv_16sc_t)*N, alignment);
+ *
+ *   for (unsigned int ii = 0; ii < N; ++ii) {
+ *       in_a[ii] = lv_cmake((int8_t)(ii & 0x7F), (int8_t)(-(ii & 0x7F)));
+ *       in_b[ii] = lv_cmake((int8_t)(ii & 0x7F), (int8_t)(ii & 0x7F));
+ *   }
+ *
+ *   volk_8ic_x2_multiply_conjugate_16ic(out, in_a, in_b, N);
+ *
+ *   volk_free(in_a);
+ *   volk_free(in_b);
+ *   volk_free(out);
+ * \endcode
+ */
+
 #ifndef INCLUDED_volk_8ic_x2_multiply_conjugate_16ic_a_H
 #define INCLUDED_volk_8ic_x2_multiply_conjugate_16ic_a_H
 
