@@ -164,6 +164,74 @@ volk_32f_exp_32f_a_sse2(float* bVector, const float* aVector, unsigned int num_p
 
 #endif /* LV_HAVE_SSE2 for aligned */
 
+#ifdef LV_HAVE_AVX2
+#include <immintrin.h>
+
+static inline void
+volk_32f_exp_32f_a_avx2(float* bVector, const float* aVector, unsigned int num_points)
+{
+    const unsigned int eighthPoints = num_points / 8;
+
+    const __m256 one = _mm256_set1_ps(1.0);
+    const __m256 exp_hi = _mm256_set1_ps(88.3762626647949);
+    const __m256 exp_lo = _mm256_set1_ps(-88.3762626647949);
+    const __m256 log2EF = _mm256_set1_ps(1.44269504088896341);
+    const __m256 half = _mm256_set1_ps(0.5);
+    const __m256 exp_C1 = _mm256_set1_ps(0.693359375);
+    const __m256 exp_C2 = _mm256_set1_ps(-2.12194440e-4);
+    const __m256i pi32_0x7f = _mm256_set1_epi32(0x7f);
+
+    const __m256 exp_p0 = _mm256_set1_ps(1.9875691500e-4);
+    const __m256 exp_p1 = _mm256_set1_ps(1.3981999507e-3);
+    const __m256 exp_p2 = _mm256_set1_ps(8.3334519073e-3);
+    const __m256 exp_p3 = _mm256_set1_ps(4.1665795894e-2);
+    const __m256 exp_p4 = _mm256_set1_ps(1.6666665459e-1);
+    const __m256 exp_p5 = _mm256_set1_ps(5.0000001201e-1);
+
+    for (unsigned int number = 0; number < eighthPoints; number++) {
+        __m256 aVal = _mm256_load_ps(aVector);
+
+        aVal = _mm256_max_ps(_mm256_min_ps(aVal, exp_hi), exp_lo);
+
+        /* express exp(x) as exp(g + n*log(2)) */
+        __m256 fx = _mm256_add_ps(_mm256_mul_ps(aVal, log2EF), half);
+
+        __m256i emm0 = _mm256_cvttps_epi32(fx);
+        __m256 tmp = _mm256_cvtepi32_ps(emm0);
+
+        const __m256 mask = _mm256_and_ps(_mm256_cmp_ps(tmp, fx, _CMP_GT_OS), one);
+        fx = _mm256_sub_ps(tmp, mask);
+
+        tmp = _mm256_mul_ps(fx, exp_C1);
+        __m256 z = _mm256_mul_ps(fx, exp_C2);
+        aVal = _mm256_sub_ps(_mm256_sub_ps(aVal, tmp), z);
+        z = _mm256_mul_ps(aVal, aVal);
+
+        __m256 y =
+            _mm256_mul_ps(_mm256_add_ps(_mm256_mul_ps(exp_p0, aVal), exp_p1), aVal);
+        y = _mm256_add_ps(_mm256_mul_ps(_mm256_add_ps(y, exp_p2), aVal), exp_p3);
+        y = _mm256_mul_ps(_mm256_add_ps(_mm256_mul_ps(y, aVal), exp_p4), aVal);
+        y = _mm256_add_ps(_mm256_mul_ps(_mm256_add_ps(y, exp_p5), z), aVal);
+        y = _mm256_add_ps(y, one);
+
+        emm0 =
+            _mm256_slli_epi32(_mm256_add_epi32(_mm256_cvttps_epi32(fx), pi32_0x7f), 23);
+
+        const __m256 pow2n = _mm256_castsi256_ps(emm0);
+        const __m256 bVal = _mm256_mul_ps(y, pow2n);
+
+        _mm256_store_ps(bVector, bVal);
+        aVector += 8;
+        bVector += 8;
+    }
+
+    for (unsigned int number = eighthPoints * 8; number < num_points; number++) {
+        *bVector++ = expf(*aVector++);
+    }
+}
+
+#endif /* LV_HAVE_AVX2 for aligned */
+
 
 #endif /* INCLUDED_volk_32f_exp_32f_a_H */
 
@@ -248,6 +316,74 @@ volk_32f_exp_32f_u_sse2(float* bVector, const float* aVector, unsigned int num_p
 }
 
 #endif /* LV_HAVE_SSE2 for unaligned */
+
+#ifdef LV_HAVE_AVX2
+#include <immintrin.h>
+
+static inline void
+volk_32f_exp_32f_u_avx2(float* bVector, const float* aVector, unsigned int num_points)
+{
+    const unsigned int eighthPoints = num_points / 8;
+
+    const __m256 one = _mm256_set1_ps(1.0);
+    const __m256 exp_hi = _mm256_set1_ps(88.3762626647949);
+    const __m256 exp_lo = _mm256_set1_ps(-88.3762626647949);
+    const __m256 log2EF = _mm256_set1_ps(1.44269504088896341);
+    const __m256 half = _mm256_set1_ps(0.5);
+    const __m256 exp_C1 = _mm256_set1_ps(0.693359375);
+    const __m256 exp_C2 = _mm256_set1_ps(-2.12194440e-4);
+    const __m256i pi32_0x7f = _mm256_set1_epi32(0x7f);
+
+    const __m256 exp_p0 = _mm256_set1_ps(1.9875691500e-4);
+    const __m256 exp_p1 = _mm256_set1_ps(1.3981999507e-3);
+    const __m256 exp_p2 = _mm256_set1_ps(8.3334519073e-3);
+    const __m256 exp_p3 = _mm256_set1_ps(4.1665795894e-2);
+    const __m256 exp_p4 = _mm256_set1_ps(1.6666665459e-1);
+    const __m256 exp_p5 = _mm256_set1_ps(5.0000001201e-1);
+
+    for (unsigned int number = 0; number < eighthPoints; number++) {
+        __m256 aVal = _mm256_loadu_ps(aVector);
+
+        aVal = _mm256_max_ps(_mm256_min_ps(aVal, exp_hi), exp_lo);
+
+        /* express exp(x) as exp(g + n*log(2)) */
+        __m256 fx = _mm256_add_ps(_mm256_mul_ps(aVal, log2EF), half);
+
+        __m256i emm0 = _mm256_cvttps_epi32(fx);
+        __m256 tmp = _mm256_cvtepi32_ps(emm0);
+
+        const __m256 mask = _mm256_and_ps(_mm256_cmp_ps(tmp, fx, _CMP_GT_OS), one);
+        fx = _mm256_sub_ps(tmp, mask);
+
+        tmp = _mm256_mul_ps(fx, exp_C1);
+        __m256 z = _mm256_mul_ps(fx, exp_C2);
+        aVal = _mm256_sub_ps(_mm256_sub_ps(aVal, tmp), z);
+        z = _mm256_mul_ps(aVal, aVal);
+
+        __m256 y =
+            _mm256_mul_ps(_mm256_add_ps(_mm256_mul_ps(exp_p0, aVal), exp_p1), aVal);
+        y = _mm256_add_ps(_mm256_mul_ps(_mm256_add_ps(y, exp_p2), aVal), exp_p3);
+        y = _mm256_mul_ps(_mm256_add_ps(_mm256_mul_ps(y, aVal), exp_p4), aVal);
+        y = _mm256_add_ps(_mm256_mul_ps(_mm256_add_ps(y, exp_p5), z), aVal);
+        y = _mm256_add_ps(y, one);
+
+        emm0 =
+            _mm256_slli_epi32(_mm256_add_epi32(_mm256_cvttps_epi32(fx), pi32_0x7f), 23);
+
+        const __m256 pow2n = _mm256_castsi256_ps(emm0);
+        const __m256 bVal = _mm256_mul_ps(y, pow2n);
+
+        _mm256_storeu_ps(bVector, bVal);
+        aVector += 8;
+        bVector += 8;
+    }
+
+    for (unsigned int number = eighthPoints * 8; number < num_points; number++) {
+        *bVector++ = expf(*aVector++);
+    }
+}
+
+#endif /* LV_HAVE_AVX2 for unaligned */
 
 
 #ifdef LV_HAVE_GENERIC
