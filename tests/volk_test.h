@@ -12,6 +12,7 @@
 #include <gtest/gtest.h>
 #include <volk/volk.h>
 #include <array>
+#include <cmath>
 #include <tuple>
 
 static constexpr std::array<size_t, 5> default_vector_sizes{ 7, 32, 128, 1023, 131071 };
@@ -143,10 +144,26 @@ template <class T>
     int errorsFound = 0;
     const char* separator = " ";
     for (unsigned long index = 0; index < length; index++) {
-        auto expected_value = ::testing::internal::FloatingPoint(expected[index]);
-        auto actual_value = ::testing::internal::FloatingPoint(actual[index]);
-        if (expected_value.is_nan() or actual_value.is_nan() or
-            std::abs(expected[index] - actual[index]) > absolute_error) {
+        const bool expected_nan = std::isnan(expected[index]);
+        const bool actual_nan = std::isnan(actual[index]);
+        const bool expected_inf = std::isinf(expected[index]);
+        const bool actual_inf = std::isinf(actual[index]);
+        const bool special_values_match =
+            (expected_nan && actual_nan) ||
+            (expected_inf && actual_inf && expected[index] == actual[index]);
+        if ((expected_nan || actual_nan || expected_inf || actual_inf) &&
+            !special_values_match) {
+            if (errorsFound == 0) {
+                result << "Differences found:";
+            }
+            if (errorsFound < 3) {
+                result << separator << expected[index] << " != " << actual[index] << " @ "
+                       << index;
+                separator = ",\n";
+            }
+            errorsFound++;
+        } else if (!expected_nan && !actual_nan && !expected_inf && !actual_inf &&
+                   std::abs(expected[index] - actual[index]) > absolute_error) {
             if (errorsFound == 0) {
                 result << "Differences found:";
             }
