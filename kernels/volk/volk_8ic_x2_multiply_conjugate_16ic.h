@@ -12,7 +12,7 @@
  *
  * \b Overview
  *
- * Multiplies the one complex vector with the complex conjugate of the
+ * Multiplies one complex vector element-wise with the complex conjugate of the
  * second complex vector and stores their results in the third vector.
  * The inputs are 8-bit complex integers (lv_8sc_t) and the output is
  * 16-bit complex integers (lv_16sc_t). The real part is saturated to
