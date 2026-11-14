@@ -66,6 +66,14 @@ jobs:
           - { name: clang-18, cc: clang-18, cxx: clang++-18, distro: ubuntu-24.04-arm }
           - { name: clang-19, cc: clang-19, cxx: clang++-19, distro: ubuntu-24.04 }
           - { name: clang-19, cc: clang-19, cxx: clang++-19, distro: ubuntu-24.04-arm }
+          - { name: clang-20, cc: clang-20, cxx: clang++-20, distro: ubuntu-26.04 }
+          - { name: clang-20, cc: clang-20, cxx: clang++-20, distro: ubuntu-26.04-arm }
+          - { name: clang-21, cc: clang-21, cxx: clang++-21, distro: ubuntu-26.04 }
+          - { name: clang-21, cc: clang-21, cxx: clang++-21, distro: ubuntu-26.04-arm }
+          - { name: clang-22, cc: clang-22, cxx: clang++-22, distro: ubuntu-26.04 }
+          - { name: clang-22, cc: clang-22, cxx: clang++-22, distro: ubuntu-26.04-arm }
+          - { name: clang-23, cc: clang-23, cxx: clang++-23, distro: ubuntu-26.04 }
+          - { name: clang-23, cc: clang-23, cxx: clang++-23, distro: ubuntu-26.04-arm }
 
     runs-on: ${{ matrix.compiler.distro }}
 
