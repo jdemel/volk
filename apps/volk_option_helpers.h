@@ -11,7 +11,6 @@
 #define VOLK_VOLK_OPTION_HELPERS_H
 
 #include <limits.h>
-#include <cstring>
 #include <map>
 #include <string>
 #include <vector>
