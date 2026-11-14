@@ -90,12 +90,18 @@ protected:
 
     void run()
     {
+        const double final_angle = std::arg(std::complex<double>(phase)) +
+                                   static_cast<double>(vector_length) *
+                                       std::arg(std::complex<double>(phase_increment));
+        const auto expected_phase = std::polar(1.0, final_angle);
         volk_32fc_s32fc_x2_rotator2_32fc_manual(result.data(),
                                                 input.data(),
                                                 &phase_increment,
                                                 &phase,
                                                 static_cast<unsigned int>(vector_length),
                                                 implementation_name.c_str());
+        EXPECT_NEAR(phase.real(), expected_phase.real(), absolute_error);
+        EXPECT_NEAR(phase.imag(), expected_phase.imag(), absolute_error);
         std::transform(result.begin(),
                        result.end(),
                        result_magnitude.begin(),
@@ -108,7 +114,7 @@ protected:
     }
 
     static constexpr float increment = 0.07f;
-    static constexpr float initial_phase_steps = 0.0f;
+    static constexpr float initial_phase_steps = 3.0f;
     static constexpr float absolute_magnitue_error = 1.0e-4f;
     float absolute_error{};
     volk::vector<lv_32fc_t> input_storage;
