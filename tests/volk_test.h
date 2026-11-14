@@ -7,17 +7,24 @@
  * SPDX-License-Identifier: LGPL-3.0-or-later
  */
 
+#include <fmt/chrono.h>
 #include <fmt/format.h>
 #include <fmt/ranges.h>
 #include <gtest/gtest.h>
+#include <string_view>
 #include <volk/volk.h>
 #include <array>
+#include <chrono>
 #include <cmath>
 #include <complex>
 #include <span>
 #include <tuple>
 
-static constexpr std::array<size_t, 5> default_vector_sizes{ 7, 32, 128, 1023, 131071 };
+static constexpr std::array<size_t, 22> default_vector_sizes{
+    0,  1,  3,  4,  5,  7,  8,   9,   15,  16,   17,
+    31, 32, 33, 63, 64, 65, 127, 128, 129, 1023, 131071
+};
+
 std::vector<std::string> get_kernel_implementation_name_list(const volk_func_desc_t desc);
 
 bool is_aligned_implementation_name(const std::string& name);
@@ -42,16 +49,40 @@ template <typename Parameter = std::tuple<std::string, size_t>>
 class VolkTestImpl : public ::testing::TestWithParam<Parameter>
 {
 protected:
+    void SetUp() override
+    {
+        initialize_test(this->GetParam());
+        initialize_data();
+    }
+
+    virtual void initialize_data() {}
+
     void initialize_test(const Parameter& param)
     {
         implementation_name = std::get<0>(param);
         vector_length = std::get<1>(param);
         is_aligned_implementation = is_aligned_implementation_name(implementation_name);
+        offset = is_aligned_implementation ? 0 : 1;
+    }
+
+    template <class Test>
+    void report_runtime(Test&& test) const
+    {
+        fmt::print("test {} implementation: {:>12}, size={} ...",
+                   is_aligned_implementation ? "aligned" : "unaligned",
+                   implementation_name,
+                   vector_length);
+        const auto start = std::chrono::steady_clock::now();
+        test();
+        const std::chrono::duration<double> elapsed =
+            std::chrono::steady_clock::now() - start;
+        fmt::print("\tduration={}\n", elapsed);
     }
 
     std::string implementation_name;
     bool is_aligned_implementation;
     size_t vector_length;
+    size_t offset;
 };
 
 using VolkTest = VolkTestImpl<>;
@@ -64,161 +95,106 @@ template <typename T>
 struct is_complex<std::complex<T>> : std::true_type {
 };
 
-template <typename T>
-::testing::AssertionResult AreIntegerArraysEqual(std::span<const T> expected,
-                                                 std::span<const T> actual)
+template <class T, class Equal, class Describe>
+::testing::AssertionResult compare_volk_arrays(std::span<const T> expected,
+                                               std::span<const T> actual,
+                                               Equal equal,
+                                               Describe describe)
 {
-    ::testing::AssertionResult result = ::testing::AssertionFailure();
+    auto result = ::testing::AssertionFailure();
     if (expected.size() != actual.size()) {
         return result << "expected result size=" << expected.size()
                       << " differs from actual size=" << actual.size();
     }
-
-    int errors_found = 0;
-    const char* separator = " ";
-    for (size_t index = 0; index < expected.size(); ++index) {
-        if (expected[index] != actual[index]) {
-            if (errors_found == 0) {
+    size_t errors = 0;
+    std::string_view separator = " ";
+    for (size_t i = 0; i < expected.size(); ++i) {
+        if (not equal(expected[i], actual[i])) {
+            if (errors == 0) {
                 result << "Differences found:";
             }
-            if (errors_found < 3) {
-                result << separator << expected[index] << " != " << actual[index] << " @ "
-                       << index;
+            if (errors < 3) {
+                result << separator;
+                describe(result, expected[i], actual[i], i);
                 separator = ",\n";
             }
-            ++errors_found;
+            ++errors;
         }
     }
-    if (errors_found > 0) {
-        result << separator << errors_found << " differences in total";
-        return result;
+    if (errors > 0) {
+        return result << separator << errors << " differences in total";
     }
     return ::testing::AssertionSuccess();
 }
 
+template <typename T>
+void describe_volk_difference(::testing::AssertionResult& result,
+                              const T& lhs,
+                              const T& rhs,
+                              const size_t index)
+{
+    result << lhs << " != " << rhs << " @ " << index;
+}
 
 template <typename T>
+::testing::AssertionResult AreIntegerArraysEqual(std::span<const T> expected,
+                                                 std::span<const T> actual)
+{
+    const auto equal = [](const T lhs, const T rhs) { return lhs == rhs; };
+    return compare_volk_arrays(expected, actual, equal, describe_volk_difference<T>);
+}
+
+template <class T>
 ::testing::AssertionResult
 AreComplexFloatingPointArraysAlmostEqual(std::span<const T> expected,
                                          std::span<const T> actual)
 {
-    ::testing::AssertionResult result = ::testing::AssertionFailure();
-    if (expected.size() != actual.size()) {
-        return result << "expected result size=" << expected.size()
-                      << " differs from actual size=" << actual.size();
-    }
-    const unsigned long length = expected.size();
-
-    int errorsFound = 0;
-    const char* separator = " ";
-    for (unsigned long index = 0; index < length; index++) {
-        auto expected_real = ::testing::internal::FloatingPoint(expected[index].real());
-        auto expected_imag = ::testing::internal::FloatingPoint(expected[index].imag());
-        auto actual_real = ::testing::internal::FloatingPoint(actual[index].real());
-        auto actual_imag = ::testing::internal::FloatingPoint(actual[index].imag());
-        if (not expected_real.AlmostEquals(actual_real) or
-            not expected_imag.AlmostEquals(actual_imag)) {
-            if (errorsFound == 0) {
-                result << "Differences found:";
-            }
-            if (errorsFound < 3) {
-                result << separator << expected[index] << " != " << actual[index] << " @ "
-                       << index;
-                separator = ",\n";
-            }
-            errorsFound++;
-        }
-    }
-    if (errorsFound > 0) {
-        result << separator << errorsFound << " differences in total";
-    } else {
-        result = ::testing::AssertionSuccess();
-    }
-    return result;
+    const auto equal = [](const T& lhs, const T& rhs) {
+        return ::testing::internal::FloatingPoint(lhs.real())
+                   .AlmostEquals(::testing::internal::FloatingPoint(rhs.real())) and
+               ::testing::internal::FloatingPoint(lhs.imag())
+                   .AlmostEquals(::testing::internal::FloatingPoint(rhs.imag()));
+    };
+    return compare_volk_arrays(expected, actual, equal, describe_volk_difference<T>);
 }
 
-template <typename T>
+template <class T>
 ::testing::AssertionResult
 AreComplexFloatingPointArraysEqualWithAbsoluteError(std::span<const T> expected,
                                                     std::span<const T> actual,
                                                     const float absolute_error = 1.0e-7f)
 {
-    ::testing::AssertionResult result = ::testing::AssertionFailure();
-    if (expected.size() != actual.size()) {
-        return result << "expected result size=" << expected.size()
-                      << " differs from actual size=" << actual.size();
-    }
-    const unsigned long length = expected.size();
-
-    int errorsFound = 0;
-    const char* separator = " ";
-    for (unsigned long index = 0; index < length; index++) {
-        auto expected_real = ::testing::internal::FloatingPoint(expected[index].real());
-        auto expected_imag = ::testing::internal::FloatingPoint(expected[index].imag());
-        auto actual_real = ::testing::internal::FloatingPoint(actual[index].real());
-        auto actual_imag = ::testing::internal::FloatingPoint(actual[index].imag());
-        if (expected_real.is_nan() or actual_real.is_nan() or expected_imag.is_nan() or
-            actual_imag.is_nan() or
-            std::abs(expected[index].real() - actual[index].real()) > absolute_error or
-            std::abs(expected[index].imag() - actual[index].imag()) > absolute_error) {
-            if (errorsFound == 0) {
-                result << "Differences found:";
-            }
-            if (errorsFound < 3) {
-                result << separator << expected[index] << " != " << actual[index] << " @ "
-                       << index;
-                separator = ",\n";
-            }
-            errorsFound++;
-        }
-    }
-    if (errorsFound > 0) {
-        result << separator << errorsFound << " differences in total";
-        return result;
-    }
-    return ::testing::AssertionSuccess();
+    const auto equal_component = [absolute_error](const auto lhs, const auto rhs) {
+        return ::testing::internal::DoubleNearPredFormat(
+            "expected", "actual", "absolute_error", lhs, rhs, absolute_error);
+    };
+    const auto equal = [equal_component](const T& lhs, const T& rhs) {
+        return equal_component(lhs.real(), rhs.real()) and
+               equal_component(lhs.imag(), rhs.imag());
+    };
+    return compare_volk_arrays(expected, actual, equal, describe_volk_difference<T>);
 }
 
-template <typename T>
+template <class T>
 ::testing::AssertionResult
 AreFloatingPointArraysEqualWithAbsoluteError(std::span<const T> expected,
                                              std::span<const T> actual,
                                              const float absolute_error = 1.0e-7f)
 {
-    ::testing::AssertionResult result = ::testing::AssertionFailure();
-    if (expected.size() != actual.size()) {
-        return result << "expected result size=" << expected.size()
-                      << " differs from actual size=" << actual.size();
-    }
-    const unsigned long length = expected.size();
-
-    int errorsFound = 0;
-    const char* separator = " ";
-    for (unsigned long index = 0; index < length; index++) {
-        const auto expected_value = ::testing::internal::FloatingPoint(expected[index]);
-        const auto actual_value = ::testing::internal::FloatingPoint(actual[index]);
-
-        const bool all_nan = expected_value.is_nan() and actual_value.is_nan();
-        if (not all_nan and std::abs(expected[index] - actual[index]) > absolute_error) {
-            if (errorsFound == 0) {
-                result << "Differences found:";
-            }
-            if (errorsFound < 3) {
-                result << fmt::format("{}@{}: {} != {}, error: {} > {}",
-                                      separator,
-                                      index,
-                                      expected[index],
-                                      actual[index],
-                                      std::abs(expected[index] - actual[index]),
-                                      absolute_error);
-                separator = ",\n";
-            }
-            errorsFound++;
-        }
-    }
-    if (errorsFound > 0) {
-        result << separator << errorsFound << " differences in total";
-        return result;
-    }
-    return ::testing::AssertionSuccess();
+    const auto equal = [absolute_error](const T lhs, const T rhs) {
+        return (::testing::internal::FloatingPoint(lhs).is_nan() and
+                ::testing::internal::FloatingPoint(rhs).is_nan()) or
+               ::testing::internal::DoubleNearPredFormat(
+                   "expected", "actual", "absolute_error", lhs, rhs, absolute_error);
+    };
+    const auto describe =
+        [absolute_error](auto& result, const T lhs, const T rhs, const size_t i) {
+            result << fmt::format("@{}: {} != {}, error: {} > {}",
+                                  i,
+                                  lhs,
+                                  rhs,
+                                  std::abs(lhs - rhs),
+                                  absolute_error);
+        };
+    return compare_volk_arrays(expected, actual, equal, describe);
 }

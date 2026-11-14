@@ -58,11 +58,8 @@ void log2_reference(std::span<float> output, std::span<const float> input)
 class volk_32f_log2_32f_test : public VolkTest
 {
 protected:
-    void SetUp() override
+    void initialize_data() override
     {
-        initialize_test(GetParam());
-        const size_t offset = is_aligned_implementation ? 0 : 1;
-
         input_storage.resize(vector_length + offset);
         expected_storage.resize(vector_length + offset);
         result_storage.resize(vector_length + offset);
@@ -74,10 +71,12 @@ protected:
         std::mt19937 generator(0xDEADBEEF);
         std::uniform_int_distribution<int> exponent_distribution(-126, 126);
         std::uniform_real_distribution<float> significand_distribution(1.0f, 2.0f);
-        std::generate(input.begin(), input.end(), [&] {
-            return std::ldexp(significand_distribution(generator),
-                              exponent_distribution(generator));
-        });
+        std::generate(input.begin(),
+                      input.end(),
+                      [&generator, &exponent_distribution, &significand_distribution] {
+                          return std::ldexp(significand_distribution(generator),
+                                            exponent_distribution(generator));
+                      });
 
         if (input.size() >= 1000) {
             std::copy(LOG2_EDGE_CASE_VALUES.begin(),
@@ -96,6 +95,8 @@ protected:
                                  values.data(),
                                  static_cast<unsigned int>(values.size()),
                                  implementation.data());
+        EXPECT_TRUE(AreFloatingPointArraysEqualWithAbsoluteError<float>(
+            expected, output, ABSOLUTE_LOG_TEST_ERROR));
     }
 
     volk::vector<float> input_storage;
@@ -108,9 +109,7 @@ protected:
 
 TEST_P(volk_32f_log2_32f_test, run)
 {
-    run(result, input, implementation_name);
-    EXPECT_TRUE(AreFloatingPointArraysEqualWithAbsoluteError<float>(
-        expected, result, ABSOLUTE_LOG_TEST_ERROR));
+    report_runtime([this] { run(result, input, implementation_name); });
 }
 
 INSTANTIATE_TEST_SUITE_P(
