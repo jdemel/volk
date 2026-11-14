@@ -86,6 +86,14 @@ struct KernelSpec {
     }
 };
 
+template <typename Input>
+struct ScaledIntegerToFloatSpec : KernelSpec<Input, float> {
+    static float expected(const Input value, const float scale)
+    {
+        return static_cast<float>(value) / scale;
+    }
+};
+
 static constexpr std::array<float, 2> scaling_values{ 0.5f, 2.0f };
 static constexpr std::array<float, 2> bias_values{ 0.0f, 128.0f };
 
@@ -270,11 +278,7 @@ struct Volk32fS32fConvert8i : KernelSpec<float, int8_t> {
     }
 };
 
-struct Volk32iS32fConvert32f : KernelSpec<int32_t, float> {
-    static output_type expected(const input_type value, const float scale)
-    {
-        return static_cast<float>(value) / scale;
-    }
+struct Volk32iS32fConvert32f : ScaledIntegerToFloatSpec<int32_t> {
     static void run(std::span<output_type> out,
                     std::span<const input_type> in,
                     const std::string_view impl,
@@ -292,11 +296,7 @@ struct Volk32iS32fConvert32f : KernelSpec<int32_t, float> {
     }
 };
 
-struct Volk8iS32fConvert32f : KernelSpec<int8_t, float> {
-    static output_type expected(const input_type value, const float scale)
-    {
-        return static_cast<float>(value) / scale;
-    }
+struct Volk8iS32fConvert32f : ScaledIntegerToFloatSpec<int8_t> {
     static void run(std::span<output_type> out,
                     std::span<const input_type> in,
                     const std::string_view impl,
@@ -338,11 +338,7 @@ struct Volk32fcConvert16ic : KernelSpec<lv_32fc_t, lv_16sc_t> {
     }
 };
 
-struct Volk16iS32fConvert32f : KernelSpec<int16_t, float> {
-    static output_type expected(const input_type value, const float scale)
-    {
-        return static_cast<float>(value) / scale;
-    }
+struct Volk16iS32fConvert32f : ScaledIntegerToFloatSpec<int16_t> {
     static void run(std::span<output_type> out,
                     std::span<const input_type> in,
                     const std::string_view impl,
@@ -390,61 +386,6 @@ struct Volk32fS32fX2Convert8u : KernelSpec<float, uint8_t> {
     }
 };
 
-template <size_t ParameterCount, typename Kernel, typename Parameter>
-struct ConvertTestFunctions;
-
-template <typename Kernel, typename Parameter>
-struct ConvertTestFunctions<2, Kernel, Parameter> {
-    static typename Kernel::output_type expected(const typename Kernel::input_type value,
-                                                 const Parameter&)
-    {
-        return Kernel::expected(value);
-    }
-
-    static void run(std::span<typename Kernel::output_type> out,
-                    std::span<const typename Kernel::input_type> in,
-                    const std::string_view implementation,
-                    const Parameter&)
-    {
-        Kernel::run(out, in, implementation);
-    }
-};
-
-template <typename Kernel, typename Parameter>
-struct ConvertTestFunctions<3, Kernel, Parameter> {
-    static typename Kernel::output_type expected(const typename Kernel::input_type value,
-                                                 const Parameter& parameter)
-    {
-        return Kernel::expected(value, std::get<2>(parameter));
-    }
-
-    static void run(std::span<typename Kernel::output_type> out,
-                    std::span<const typename Kernel::input_type> in,
-                    const std::string_view implementation,
-                    const Parameter& parameter)
-    {
-        Kernel::run(out, in, implementation, std::get<2>(parameter));
-    }
-};
-
-template <typename Kernel, typename Parameter>
-struct ConvertTestFunctions<4, Kernel, Parameter> {
-    static typename Kernel::output_type expected(const typename Kernel::input_type value,
-                                                 const Parameter& parameter)
-    {
-        return Kernel::expected(value, std::get<2>(parameter), std::get<3>(parameter));
-    }
-
-    static void run(std::span<typename Kernel::output_type> out,
-                    std::span<const typename Kernel::input_type> in,
-                    const std::string_view implementation,
-                    const Parameter& parameter)
-    {
-        Kernel::run(
-            out, in, implementation, std::get<2>(parameter), std::get<3>(parameter));
-    }
-};
-
 template <typename Kernel, typename Parameter = std::tuple<std::string, size_t>>
 class ConvertTest : public VolkTestImpl<Parameter>
 {
@@ -462,12 +403,13 @@ protected:
         unaligned_input.resize(this->vector_length + 1);
         unaligned_result.resize(this->vector_length + 1);
         std::mt19937 generator{ 0x424242u };
-        std::generate(
-            input.begin(), input.end(), [&] { return Kernel::random_input(generator); });
+        std::generate(input.begin(), input.end(), [&generator] {
+            return Kernel::random_input(generator);
+        });
         std::transform(input.begin(),
                        input.end(),
                        expected.begin(),
-                       [&](const input_type value) { return expected_value(value); });
+                       [this](const input_type value) { return expected_value(value); });
         std::copy(input.begin(), input.end(), unaligned_input.begin() + 1);
     }
 
@@ -499,21 +441,28 @@ protected:
     volk::vector<input_type> input, unaligned_input;
     volk::vector<output_type> expected, result, unaligned_result;
 
-    virtual output_type expected_value(const input_type value)
-    {
-        static_assert(std::tuple_size_v<parameter_type> >= 2);
-        return ConvertTestFunctions<std::tuple_size_v<parameter_type>,
-                                    Kernel,
-                                    parameter_type>::expected(value, this->GetParam());
-    }
-
+    virtual output_type expected_value(const input_type value) = 0;
     virtual void run_kernel(std::span<output_type> out,
                             std::span<const input_type> in,
-                            const std::string_view implementation)
+                            const std::string_view implementation) = 0;
+};
+
+template <typename Kernel, typename Parameter = std::tuple<std::string, size_t>>
+class ConvertTestUnscaled : public ConvertTest<Kernel, Parameter>
+{
+protected:
+    using typename ConvertTest<Kernel, Parameter>::input_type;
+    using typename ConvertTest<Kernel, Parameter>::output_type;
+
+    output_type expected_value(const input_type value) override
     {
-        static_assert(std::tuple_size_v<parameter_type> >= 2);
-        ConvertTestFunctions<std::tuple_size_v<parameter_type>, Kernel, parameter_type>::
-            run(out, in, implementation, this->GetParam());
+        return Kernel::expected(value);
+    }
+    void run_kernel(std::span<output_type> out,
+                    std::span<const input_type> in,
+                    const std::string_view implementation) override
+    {
+        Kernel::run(out, in, implementation);
     }
 };
 
@@ -521,26 +470,26 @@ template <typename Kernel, typename Parameter = std::tuple<std::string, size_t, 
 class ConvertTestWithScaling : public ConvertTest<Kernel, Parameter>
 {
 protected:
-    using Base = ConvertTest<Kernel, Parameter>;
-    using typename Base::input_type;
-    using typename Base::output_type;
-    using typename Base::parameter_type;
+    static_assert(std::tuple_size_v<Parameter> >= 3);
+    float scaling() const { return std::get<2>(this->GetParam()); }
+};
+
+template <typename Kernel, typename Parameter = std::tuple<std::string, size_t, float>>
+class ConvertTestScaled : public ConvertTestWithScaling<Kernel, Parameter>
+{
+protected:
+    using typename ConvertTest<Kernel, Parameter>::input_type;
+    using typename ConvertTest<Kernel, Parameter>::output_type;
 
     output_type expected_value(const input_type value) override
     {
-        static_assert(std::tuple_size_v<parameter_type> >= 3);
-        return ConvertTestFunctions<std::tuple_size_v<parameter_type>,
-                                    Kernel,
-                                    parameter_type>::expected(value, this->GetParam());
+        return Kernel::expected(value, this->scaling());
     }
-
     void run_kernel(std::span<output_type> out,
                     std::span<const input_type> in,
                     const std::string_view implementation) override
     {
-        static_assert(std::tuple_size_v<parameter_type> >= 3);
-        ConvertTestFunctions<std::tuple_size_v<parameter_type>, Kernel, parameter_type>::
-            run(out, in, implementation, this->GetParam());
+        Kernel::run(out, in, implementation, this->scaling());
     }
 };
 
@@ -549,30 +498,24 @@ template <typename Kernel,
 class ConvertTestWithBias : public ConvertTestWithScaling<Kernel, Parameter>
 {
 protected:
-    using Base = ConvertTestWithScaling<Kernel, Parameter>;
-    using typename Base::input_type;
-    using typename Base::output_type;
-    using typename Base::parameter_type;
+    static_assert(std::tuple_size_v<Parameter> >= 4);
+    using typename ConvertTest<Kernel, Parameter>::input_type;
+    using typename ConvertTest<Kernel, Parameter>::output_type;
 
     output_type expected_value(const input_type value) override
     {
-        static_assert(std::tuple_size_v<parameter_type> >= 4);
-        return ConvertTestFunctions<std::tuple_size_v<parameter_type>,
-                                    Kernel,
-                                    parameter_type>::expected(value, this->GetParam());
+        return Kernel::expected(value, this->scaling(), std::get<3>(this->GetParam()));
     }
-
     void run_kernel(std::span<output_type> out,
                     std::span<const input_type> in,
                     const std::string_view implementation) override
     {
-        static_assert(std::tuple_size_v<parameter_type> >= 4);
-        ConvertTestFunctions<std::tuple_size_v<parameter_type>, Kernel, parameter_type>::
-            run(out, in, implementation, this->GetParam());
+        Kernel::run(
+            out, in, implementation, this->scaling(), std::get<3>(this->GetParam()));
     }
 };
 
-using volk_8i_convert_16i_test = ConvertTest<Volk8iConvert16i>;
+using volk_8i_convert_16i_test = ConvertTestUnscaled<Volk8iConvert16i>;
 TEST_P(volk_8i_convert_16i_test, run) { run(implementation_name); }
 INSTANTIATE_TEST_SUITE_P(
     volk_8i_convert_16i,
@@ -582,7 +525,7 @@ INSTANTIATE_TEST_SUITE_P(
                      testing::ValuesIn(default_vector_sizes)),
     generate_volk_test_name());
 
-using volk_16i_convert_8i_test = ConvertTest<Volk16iConvert8i>;
+using volk_16i_convert_8i_test = ConvertTestUnscaled<Volk16iConvert8i>;
 TEST_P(volk_16i_convert_8i_test, run) { run(implementation_name); }
 INSTANTIATE_TEST_SUITE_P(
     volk_16i_convert_8i,
@@ -592,7 +535,7 @@ INSTANTIATE_TEST_SUITE_P(
                      testing::ValuesIn(default_vector_sizes)),
     generate_volk_test_name());
 
-using volk_16ic_convert_32fc_test = ConvertTest<Volk16icConvert32fc>;
+using volk_16ic_convert_32fc_test = ConvertTestUnscaled<Volk16icConvert32fc>;
 TEST_P(volk_16ic_convert_32fc_test, run) { run(implementation_name); }
 INSTANTIATE_TEST_SUITE_P(
     volk_16ic_convert_32fc,
@@ -602,7 +545,7 @@ INSTANTIATE_TEST_SUITE_P(
                      testing::ValuesIn(default_vector_sizes)),
     generate_volk_test_name());
 
-using volk_32f_convert_64f_test = ConvertTest<Volk32fConvert64f>;
+using volk_32f_convert_64f_test = ConvertTestUnscaled<Volk32fConvert64f>;
 TEST_P(volk_32f_convert_64f_test, run) { run(implementation_name); }
 INSTANTIATE_TEST_SUITE_P(
     volk_32f_convert_64f,
@@ -612,7 +555,7 @@ INSTANTIATE_TEST_SUITE_P(
                      testing::ValuesIn(default_vector_sizes)),
     generate_volk_test_name());
 
-using volk_64f_convert_32f_test = ConvertTest<Volk64fConvert32f>;
+using volk_64f_convert_32f_test = ConvertTestUnscaled<Volk64fConvert32f>;
 TEST_P(volk_64f_convert_32f_test, run) { run(implementation_name); }
 INSTANTIATE_TEST_SUITE_P(
     volk_64f_convert_32f,
@@ -622,7 +565,7 @@ INSTANTIATE_TEST_SUITE_P(
                      testing::ValuesIn(default_vector_sizes)),
     generate_volk_test_name());
 
-using volk_32f_s32f_convert_16i_test = ConvertTestWithScaling<Volk32fS32fConvert16i>;
+using volk_32f_s32f_convert_16i_test = ConvertTestScaled<Volk32fS32fConvert16i>;
 TEST_P(volk_32f_s32f_convert_16i_test, run) { run(implementation_name); }
 INSTANTIATE_TEST_SUITE_P(
     volk_32f_s32f_convert_16i,
@@ -633,7 +576,7 @@ INSTANTIATE_TEST_SUITE_P(
                      testing::ValuesIn(scaling_values)),
     generate_volk_test_scaling_name());
 
-using volk_32f_s32f_convert_32i_test = ConvertTestWithScaling<Volk32fS32fConvert32i>;
+using volk_32f_s32f_convert_32i_test = ConvertTestScaled<Volk32fS32fConvert32i>;
 TEST_P(volk_32f_s32f_convert_32i_test, run) { run(implementation_name); }
 INSTANTIATE_TEST_SUITE_P(
     volk_32f_s32f_convert_32i,
@@ -644,7 +587,7 @@ INSTANTIATE_TEST_SUITE_P(
                      testing::ValuesIn(scaling_values)),
     generate_volk_test_scaling_name());
 
-using volk_32f_s32f_convert_8i_test = ConvertTestWithScaling<Volk32fS32fConvert8i>;
+using volk_32f_s32f_convert_8i_test = ConvertTestScaled<Volk32fS32fConvert8i>;
 TEST_P(volk_32f_s32f_convert_8i_test, run) { run(implementation_name); }
 INSTANTIATE_TEST_SUITE_P(
     volk_32f_s32f_convert_8i,
@@ -655,7 +598,7 @@ INSTANTIATE_TEST_SUITE_P(
                      testing::ValuesIn(scaling_values)),
     generate_volk_test_scaling_name());
 
-using volk_32i_s32f_convert_32f_test = ConvertTestWithScaling<Volk32iS32fConvert32f>;
+using volk_32i_s32f_convert_32f_test = ConvertTestScaled<Volk32iS32fConvert32f>;
 TEST_P(volk_32i_s32f_convert_32f_test, run) { run(implementation_name); }
 INSTANTIATE_TEST_SUITE_P(
     volk_32i_s32f_convert_32f,
@@ -666,7 +609,7 @@ INSTANTIATE_TEST_SUITE_P(
                      testing::ValuesIn(scaling_values)),
     generate_volk_test_scaling_name());
 
-using volk_8i_s32f_convert_32f_test = ConvertTestWithScaling<Volk8iS32fConvert32f>;
+using volk_8i_s32f_convert_32f_test = ConvertTestScaled<Volk8iS32fConvert32f>;
 TEST_P(volk_8i_s32f_convert_32f_test, run) { run(implementation_name); }
 INSTANTIATE_TEST_SUITE_P(
     volk_8i_s32f_convert_32f,
@@ -677,7 +620,7 @@ INSTANTIATE_TEST_SUITE_P(
                      testing::ValuesIn(scaling_values)),
     generate_volk_test_scaling_name());
 
-using volk_32fc_convert_16ic_test = ConvertTest<Volk32fcConvert16ic>;
+using volk_32fc_convert_16ic_test = ConvertTestUnscaled<Volk32fcConvert16ic>;
 TEST_P(volk_32fc_convert_16ic_test, run) { run(implementation_name); }
 INSTANTIATE_TEST_SUITE_P(
     volk_32fc_convert_16ic,
@@ -687,7 +630,7 @@ INSTANTIATE_TEST_SUITE_P(
                      testing::ValuesIn(default_vector_sizes)),
     generate_volk_test_name());
 
-using volk_16i_s32f_convert_32f_test = ConvertTestWithScaling<Volk16iS32fConvert32f>;
+using volk_16i_s32f_convert_32f_test = ConvertTestScaled<Volk16iS32fConvert32f>;
 TEST_P(volk_16i_s32f_convert_32f_test, run) { run(implementation_name); }
 INSTANTIATE_TEST_SUITE_P(
     volk_16i_s32f_convert_32f,
