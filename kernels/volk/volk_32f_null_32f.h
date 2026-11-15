@@ -8,8 +8,6 @@
  */
 
 #include <inttypes.h>
-#include <math.h>
-#include <stdio.h>
 
 #ifndef INCLUDED_volk_32f_null_32f_a_H
 #define INCLUDED_volk_32f_null_32f_a_H
@@ -19,12 +17,8 @@
 static inline void
 volk_32f_null_32f_generic(float* bVector, const float* aVector, unsigned int num_points)
 {
-    float* bPtr = bVector;
-    const float* aPtr = aVector;
-    unsigned int number;
-
-    for (number = 0; number < num_points; number++) {
-        *bPtr++ = *aPtr++;
+    for (unsigned int number = 0; number < num_points; number++) {
+        *bVector++ = *aVector++;
     }
 }
 #endif /* LV_HAVE_GENERIC */
