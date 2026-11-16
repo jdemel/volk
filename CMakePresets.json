@@ -28,6 +28,14 @@
       "toolchainFile": "${sourceDir}/cmake/Toolchains/aarch64-linux-gnu.cmake"
     },
     {
+      "name": "riscv64",
+      "displayName": "RISC-V Configuration",
+      "description": "Debug RISC-V vector build and tests under QEMU user emulation",
+      "inherits": [".base-config", ".component-config"],
+      "cacheVariables": { "CMAKE_BUILD_TYPE": "Debug" },
+      "toolchainFile": "${sourceDir}/cmake/Toolchains/riscv64-linux-gnu.cmake"
+    },
+    {
       "name": "native",
       "displayName": "Native Optimization Configuration",
       "description": "Release build with native architecture optimizations",
@@ -124,6 +132,12 @@
       "inherits": [".build-base"]
     },
     {
+      "name": "riscv64",
+      "displayName": "RISC-V Build",
+      "configurePreset": "riscv64",
+      "inherits": [".build-base"]
+    },
+    {
       "name": "native",
       "displayName": "Native Build",
       "configurePreset": "native",
@@ -160,6 +174,12 @@
       "name": "aarch64",
       "displayName": "AArch64 Tests",
       "configurePreset": "aarch64",
+      "inherits": [".test-base"]
+    },
+    {
+      "name": "riscv64",
+      "displayName": "RISC-V Tests",
+      "configurePreset": "riscv64",
       "inherits": [".test-base"]
     },
     {
@@ -204,6 +224,16 @@
         { "type": "configure", "name": "aarch64" },
         { "type": "build", "name": "aarch64" },
         { "type": "test", "name": "aarch64" }
+      ]
+    },
+    {
+      "name": "riscv64",
+      "displayName": "RISC-V Workflow",
+      "description": "Cross-compile and test RISC-V vector kernels under QEMU",
+      "steps": [
+        { "type": "configure", "name": "riscv64" },
+        { "type": "build", "name": "riscv64" },
+        { "type": "test", "name": "riscv64" }
       ]
     },
     {

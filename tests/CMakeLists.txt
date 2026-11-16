@@ -48,7 +48,11 @@ target_link_libraries(volk_tests
 )
 
 include(GoogleTest)
-gtest_discover_tests(volk_tests)
+if(CMAKE_CROSSCOMPILING)
+  gtest_discover_tests(volk_tests DISCOVERY_TIMEOUT 120)
+else()
+  gtest_discover_tests(volk_tests)
+endif()
 
 
 target_include_directories(volk_tests
