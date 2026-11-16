@@ -44,9 +44,15 @@ static inline void volk_16ic_x2_multiply_16ic_generic(lv_16sc_t* result,
                                                       const lv_16sc_t* in_b,
                                                       unsigned int num_points)
 {
-    unsigned int n;
-    for (n = 0; n < num_points; n++) {
-        result[n] = in_a[n] * in_b[n];
+    for (unsigned int n = 0; n < num_points; ++n) {
+        const size_t index = (size_t)n * 2;
+        const uint32_t real0 = (uint16_t)((const int16_t*)in_a)[index];
+        const uint32_t imag0 = (uint16_t)((const int16_t*)in_a)[index + 1];
+        const uint32_t real1 = (uint16_t)((const int16_t*)in_b)[index];
+        const uint32_t imag1 = (uint16_t)((const int16_t*)in_b)[index + 1];
+        ((int16_t*)result)[index] = (int16_t)(uint16_t)(real0 * real1 - imag0 * imag1);
+        ((int16_t*)result)[index + 1] =
+            (int16_t)(uint16_t)(real0 * imag1 + imag0 * real1);
     }
 }
 
@@ -54,515 +60,231 @@ static inline void volk_16ic_x2_multiply_16ic_generic(lv_16sc_t* result,
 
 
 #ifdef LV_HAVE_SSE2
-#include <emmintrin.h>
-
+#include <immintrin.h>
 static inline void volk_16ic_x2_multiply_16ic_a_sse2(lv_16sc_t* out,
                                                      const lv_16sc_t* in_a,
                                                      const lv_16sc_t* in_b,
                                                      unsigned int num_points)
 {
-    const unsigned int sse_iters = num_points / 4;
-    __m128i a, b, c, c_sr, mask_imag, mask_real, real, imag, imag1, imag2, b_sl, a_sl,
-        result;
-
-    mask_imag = _mm_set_epi8(CHAR0XFF,
-                             CHAR0XFF,
-                             0,
-                             0,
-                             CHAR0XFF,
-                             CHAR0XFF,
-                             0,
-                             0,
-                             CHAR0XFF,
-                             CHAR0XFF,
-                             0,
-                             0,
-                             CHAR0XFF,
-                             CHAR0XFF,
-                             0,
-                             0);
-    mask_real = _mm_set_epi8(0,
-                             0,
-                             CHAR0XFF,
-                             CHAR0XFF,
-                             0,
-                             0,
-                             CHAR0XFF,
-                             CHAR0XFF,
-                             0,
-                             0,
-                             CHAR0XFF,
-                             CHAR0XFF,
-                             0,
-                             0,
-                             CHAR0XFF,
-                             CHAR0XFF);
-
-    const lv_16sc_t* _in_a = in_a;
-    const lv_16sc_t* _in_b = in_b;
-    lv_16sc_t* _out = out;
-    unsigned int number;
-
-    for (number = 0; number < sse_iters; number++) {
-        a = _mm_load_si128(
-            (__m128i*)_in_a); // load (2 byte imag, 2 byte real) x 4 into 128 bits reg
-        b = _mm_load_si128((__m128i*)_in_b);
-        c = _mm_mullo_epi16(a, b); // a3.i*b3.i, a3.r*b3.r, ....
-
-        c_sr = _mm_srli_si128(c, 2); // Shift a right by imm8 bytes while shifting in
-                                     // zeros, and store the results in dst.
-        real = _mm_subs_epi16(c, c_sr);
-        real = _mm_and_si128(real,
-                             mask_real); // a3.r*b3.r-a3.i*b3.i , 0,  a3.r*b3.r- a3.i*b3.i
-
-        b_sl = _mm_slli_si128(b, 2); // b3.r, b2.i ....
-        a_sl = _mm_slli_si128(a, 2); // a3.r, a2.i ....
-
-        imag1 = _mm_mullo_epi16(a, b_sl); // a3.i*b3.r, ....
-        imag2 = _mm_mullo_epi16(b, a_sl); // b3.i*a3.r, ....
-
-        imag = _mm_adds_epi16(imag1, imag2);
-        imag = _mm_and_si128(imag, mask_imag); // a3.i*b3.r+b3.i*a3.r, 0, ...
-
-        result = _mm_or_si128(real, imag);
-
-        _mm_store_si128((__m128i*)_out, result);
-
-        _in_a += 4;
-        _in_b += 4;
-        _out += 4;
+    const unsigned int blocks = num_points / 4;
+    const __m128i real_mask = _mm_set1_epi32(0xffff);
+    for (unsigned int number = 0; number < blocks; ++number) {
+        const __m128i vec0 = _mm_load_si128((const __m128i*)in_a);
+        const __m128i vec1 = _mm_load_si128((const __m128i*)in_b);
+        const __m128i products = _mm_mullo_epi16(vec0, vec1);
+        const __m128i real = _mm_and_si128(
+            _mm_sub_epi16(products, _mm_srli_si128(products, 2)), real_mask);
+        const __m128i cross0 = _mm_mullo_epi16(vec0, _mm_slli_si128(vec1, 2));
+        const __m128i cross1 = _mm_mullo_epi16(vec1, _mm_slli_si128(vec0, 2));
+        const __m128i imag = _mm_andnot_si128(real_mask, _mm_add_epi16(cross0, cross1));
+        const __m128i result = _mm_or_si128(real, imag);
+        _mm_store_si128((__m128i*)out, result);
+        in_a += 4;
+        in_b += 4;
+        out += 4;
     }
-
-    for (number = sse_iters * 4; number < num_points; ++number) {
-        *_out++ = (*_in_a++) * (*_in_b++);
-    }
+    volk_16ic_x2_multiply_16ic_generic(out, in_a, in_b, num_points % 4);
 }
 #endif /* LV_HAVE_SSE2 */
 
-
 #ifdef LV_HAVE_SSE2
-#include <emmintrin.h>
-
 static inline void volk_16ic_x2_multiply_16ic_u_sse2(lv_16sc_t* out,
                                                      const lv_16sc_t* in_a,
                                                      const lv_16sc_t* in_b,
                                                      unsigned int num_points)
 {
-    const unsigned int sse_iters = num_points / 4;
-    __m128i a, b, c, c_sr, mask_imag, mask_real, real, imag, imag1, imag2, b_sl, a_sl,
-        result;
-
-    mask_imag = _mm_set_epi8(CHAR0XFF,
-                             CHAR0XFF,
-                             0,
-                             0,
-                             CHAR0XFF,
-                             CHAR0XFF,
-                             0,
-                             0,
-                             CHAR0XFF,
-                             CHAR0XFF,
-                             0,
-                             0,
-                             CHAR0XFF,
-                             CHAR0XFF,
-                             0,
-                             0);
-    mask_real = _mm_set_epi8(0,
-                             0,
-                             CHAR0XFF,
-                             CHAR0XFF,
-                             0,
-                             0,
-                             CHAR0XFF,
-                             CHAR0XFF,
-                             0,
-                             0,
-                             CHAR0XFF,
-                             CHAR0XFF,
-                             0,
-                             0,
-                             CHAR0XFF,
-                             CHAR0XFF);
-
-    const lv_16sc_t* _in_a = in_a;
-    const lv_16sc_t* _in_b = in_b;
-    lv_16sc_t* _out = out;
-    unsigned int number;
-
-    for (number = 0; number < sse_iters; number++) {
-        a = _mm_loadu_si128(
-            (__m128i*)_in_a); // load (2 byte imag, 2 byte real) x 4 into 128 bits reg
-        b = _mm_loadu_si128((__m128i*)_in_b);
-        c = _mm_mullo_epi16(a, b); // a3.i*b3.i, a3.r*b3.r, ....
-
-        c_sr = _mm_srli_si128(c, 2); // Shift a right by imm8 bytes while shifting in
-                                     // zeros, and store the results in dst.
-        real = _mm_subs_epi16(c, c_sr);
-        real = _mm_and_si128(real,
-                             mask_real); // a3.r*b3.r-a3.i*b3.i , 0,  a3.r*b3.r- a3.i*b3.i
-
-        b_sl = _mm_slli_si128(b, 2); // b3.r, b2.i ....
-        a_sl = _mm_slli_si128(a, 2); // a3.r, a2.i ....
-
-        imag1 = _mm_mullo_epi16(a, b_sl); // a3.i*b3.r, ....
-        imag2 = _mm_mullo_epi16(b, a_sl); // b3.i*a3.r, ....
-
-        imag = _mm_adds_epi16(imag1, imag2);
-        imag = _mm_and_si128(imag, mask_imag); // a3.i*b3.r+b3.i*a3.r, 0, ...
-
-        result = _mm_or_si128(real, imag);
-
-        _mm_storeu_si128((__m128i*)_out, result);
-
-        _in_a += 4;
-        _in_b += 4;
-        _out += 4;
+    const unsigned int blocks = num_points / 4;
+    const __m128i real_mask = _mm_set1_epi32(0xffff);
+    for (unsigned int number = 0; number < blocks; ++number) {
+        const __m128i vec0 = _mm_loadu_si128((const __m128i*)in_a);
+        const __m128i vec1 = _mm_loadu_si128((const __m128i*)in_b);
+        const __m128i products = _mm_mullo_epi16(vec0, vec1);
+        const __m128i real = _mm_and_si128(
+            _mm_sub_epi16(products, _mm_srli_si128(products, 2)), real_mask);
+        const __m128i cross0 = _mm_mullo_epi16(vec0, _mm_slli_si128(vec1, 2));
+        const __m128i cross1 = _mm_mullo_epi16(vec1, _mm_slli_si128(vec0, 2));
+        const __m128i imag = _mm_andnot_si128(real_mask, _mm_add_epi16(cross0, cross1));
+        const __m128i result = _mm_or_si128(real, imag);
+        _mm_storeu_si128((__m128i*)out, result);
+        in_a += 4;
+        in_b += 4;
+        out += 4;
     }
-
-    for (number = sse_iters * 4; number < num_points; ++number) {
-        *_out++ = (*_in_a++) * (*_in_b++);
-    }
+    volk_16ic_x2_multiply_16ic_generic(out, in_a, in_b, num_points % 4);
 }
-#endif /* LV_HAVE_SSE2 */
-
+#endif
 
 #ifdef LV_HAVE_AVX2
 #include <immintrin.h>
-
-static inline void volk_16ic_x2_multiply_16ic_u_avx2(lv_16sc_t* out,
-                                                     const lv_16sc_t* in_a,
-                                                     const lv_16sc_t* in_b,
-                                                     unsigned int num_points)
-{
-    unsigned int number = 0;
-    const unsigned int avx2_points = num_points / 8;
-
-    const lv_16sc_t* _in_a = in_a;
-    const lv_16sc_t* _in_b = in_b;
-    lv_16sc_t* _out = out;
-
-    __m256i a, b, c, c_sr, real, imag, imag1, imag2, b_sl, a_sl, result;
-
-    const __m256i mask_imag = _mm256_set_epi8(CHAR0XFF,
-                                              CHAR0XFF,
-                                              0,
-                                              0,
-                                              CHAR0XFF,
-                                              CHAR0XFF,
-                                              0,
-                                              0,
-                                              CHAR0XFF,
-                                              CHAR0XFF,
-                                              0,
-                                              0,
-                                              CHAR0XFF,
-                                              CHAR0XFF,
-                                              0,
-                                              0,
-                                              CHAR0XFF,
-                                              CHAR0XFF,
-                                              0,
-                                              0,
-                                              CHAR0XFF,
-                                              CHAR0XFF,
-                                              0,
-                                              0,
-                                              CHAR0XFF,
-                                              CHAR0XFF,
-                                              0,
-                                              0,
-                                              CHAR0XFF,
-                                              CHAR0XFF,
-                                              0,
-                                              0);
-    const __m256i mask_real = _mm256_set_epi8(0,
-                                              0,
-                                              CHAR0XFF,
-                                              CHAR0XFF,
-                                              0,
-                                              0,
-                                              CHAR0XFF,
-                                              CHAR0XFF,
-                                              0,
-                                              0,
-                                              CHAR0XFF,
-                                              CHAR0XFF,
-                                              0,
-                                              0,
-                                              CHAR0XFF,
-                                              CHAR0XFF,
-                                              0,
-                                              0,
-                                              CHAR0XFF,
-                                              CHAR0XFF,
-                                              0,
-                                              0,
-                                              CHAR0XFF,
-                                              CHAR0XFF,
-                                              0,
-                                              0,
-                                              CHAR0XFF,
-                                              CHAR0XFF,
-                                              0,
-                                              0,
-                                              CHAR0XFF,
-                                              CHAR0XFF);
-
-    for (; number < avx2_points; number++) {
-        a = _mm256_loadu_si256(
-            (__m256i*)_in_a); // Load the ar + ai, br + bi as ar,ai,br,bi
-        b = _mm256_loadu_si256(
-            (__m256i*)_in_b); // Load the cr + ci, dr + di as cr,ci,dr,di
-        c = _mm256_mullo_epi16(a, b);
-
-        c_sr = _mm256_srli_si256(c, 2); // Shift a right by imm8 bytes while shifting in
-                                        // zeros, and store the results in dst.
-        real = _mm256_subs_epi16(c, c_sr);
-        real = _mm256_and_si256(
-            real, mask_real); // a3.r*b3.r-a3.i*b3.i , 0,  a3.r*b3.r- a3.i*b3.i
-
-        b_sl = _mm256_slli_si256(b, 2); // b3.r, b2.i ....
-        a_sl = _mm256_slli_si256(a, 2); // a3.r, a2.i ....
-
-        imag1 = _mm256_mullo_epi16(a, b_sl); // a3.i*b3.r, ....
-        imag2 = _mm256_mullo_epi16(b, a_sl); // b3.i*a3.r, ....
-
-        imag = _mm256_adds_epi16(imag1, imag2);
-        imag = _mm256_and_si256(imag, mask_imag); // a3.i*b3.r+b3.i*a3.r, 0, ...
-
-        result = _mm256_or_si256(real, imag);
-
-        _mm256_storeu_si256((__m256i*)_out, result);
-
-        _in_a += 8;
-        _in_b += 8;
-        _out += 8;
-    }
-
-    number = avx2_points * 8;
-    for (; number < num_points; number++) {
-        *_out++ = (*_in_a++) * (*_in_b++);
-    }
-}
-#endif /* LV_HAVE_AVX2  */
-
-
-#ifdef LV_HAVE_AVX2
-#include <immintrin.h>
-
 static inline void volk_16ic_x2_multiply_16ic_a_avx2(lv_16sc_t* out,
                                                      const lv_16sc_t* in_a,
                                                      const lv_16sc_t* in_b,
                                                      unsigned int num_points)
 {
-    unsigned int number = 0;
-    const unsigned int avx2_points = num_points / 8;
-
-    const lv_16sc_t* _in_a = in_a;
-    const lv_16sc_t* _in_b = in_b;
-    lv_16sc_t* _out = out;
-
-    __m256i a, b, c, c_sr, real, imag, imag1, imag2, b_sl, a_sl, result;
-
-    const __m256i mask_imag = _mm256_set_epi8(CHAR0XFF,
-                                              CHAR0XFF,
-                                              0,
-                                              0,
-                                              CHAR0XFF,
-                                              CHAR0XFF,
-                                              0,
-                                              0,
-                                              CHAR0XFF,
-                                              CHAR0XFF,
-                                              0,
-                                              0,
-                                              CHAR0XFF,
-                                              CHAR0XFF,
-                                              0,
-                                              0,
-                                              CHAR0XFF,
-                                              CHAR0XFF,
-                                              0,
-                                              0,
-                                              CHAR0XFF,
-                                              CHAR0XFF,
-                                              0,
-                                              0,
-                                              CHAR0XFF,
-                                              CHAR0XFF,
-                                              0,
-                                              0,
-                                              CHAR0XFF,
-                                              CHAR0XFF,
-                                              0,
-                                              0);
-    const __m256i mask_real = _mm256_set_epi8(0,
-                                              0,
-                                              CHAR0XFF,
-                                              CHAR0XFF,
-                                              0,
-                                              0,
-                                              CHAR0XFF,
-                                              CHAR0XFF,
-                                              0,
-                                              0,
-                                              CHAR0XFF,
-                                              CHAR0XFF,
-                                              0,
-                                              0,
-                                              CHAR0XFF,
-                                              CHAR0XFF,
-                                              0,
-                                              0,
-                                              CHAR0XFF,
-                                              CHAR0XFF,
-                                              0,
-                                              0,
-                                              CHAR0XFF,
-                                              CHAR0XFF,
-                                              0,
-                                              0,
-                                              CHAR0XFF,
-                                              CHAR0XFF,
-                                              0,
-                                              0,
-                                              CHAR0XFF,
-                                              CHAR0XFF);
-
-    for (; number < avx2_points; number++) {
-        a = _mm256_load_si256(
-            (__m256i*)_in_a); // Load the ar + ai, br + bi as ar,ai,br,bi
-        b = _mm256_load_si256(
-            (__m256i*)_in_b); // Load the cr + ci, dr + di as cr,ci,dr,di
-        c = _mm256_mullo_epi16(a, b);
-
-        c_sr = _mm256_srli_si256(c, 2); // Shift a right by imm8 bytes while shifting in
-                                        // zeros, and store the results in dst.
-        real = _mm256_subs_epi16(c, c_sr);
-        real = _mm256_and_si256(
-            real, mask_real); // a3.r*b3.r-a3.i*b3.i , 0,  a3.r*b3.r- a3.i*b3.i
-
-        b_sl = _mm256_slli_si256(b, 2); // b3.r, b2.i ....
-        a_sl = _mm256_slli_si256(a, 2); // a3.r, a2.i ....
-
-        imag1 = _mm256_mullo_epi16(a, b_sl); // a3.i*b3.r, ....
-        imag2 = _mm256_mullo_epi16(b, a_sl); // b3.i*a3.r, ....
-
-        imag = _mm256_adds_epi16(imag1, imag2);
-        imag = _mm256_and_si256(imag, mask_imag); // a3.i*b3.r+b3.i*a3.r, 0, ...
-
-        result = _mm256_or_si256(real, imag);
-
-        _mm256_store_si256((__m256i*)_out, result);
-
-        _in_a += 8;
-        _in_b += 8;
-        _out += 8;
+    const unsigned int blocks = num_points / 8;
+    const __m256i real_mask = _mm256_set1_epi32(0xffff);
+    for (unsigned int number = 0; number < blocks; ++number) {
+        const __m256i vec0 = _mm256_load_si256((const __m256i*)in_a);
+        const __m256i vec1 = _mm256_load_si256((const __m256i*)in_b);
+        const __m256i products = _mm256_mullo_epi16(vec0, vec1);
+        const __m256i real = _mm256_and_si256(
+            _mm256_sub_epi16(products, _mm256_srli_si256(products, 2)), real_mask);
+        const __m256i cross0 = _mm256_mullo_epi16(vec0, _mm256_slli_si256(vec1, 2));
+        const __m256i cross1 = _mm256_mullo_epi16(vec1, _mm256_slli_si256(vec0, 2));
+        const __m256i imag =
+            _mm256_andnot_si256(real_mask, _mm256_add_epi16(cross0, cross1));
+        const __m256i result = _mm256_or_si256(real, imag);
+        _mm256_store_si256((__m256i*)out, result);
+        in_a += 8;
+        in_b += 8;
+        out += 8;
     }
-
-    number = avx2_points * 8;
-    for (; number < num_points; number++) {
-        *_out++ = (*_in_a++) * (*_in_b++);
-    }
+    volk_16ic_x2_multiply_16ic_generic(out, in_a, in_b, num_points % 8);
 }
-#endif /* LV_HAVE_AVX2  */
+#endif /* LV_HAVE_AVX2 */
 
+#ifdef LV_HAVE_AVX2
+static inline void volk_16ic_x2_multiply_16ic_u_avx2(lv_16sc_t* out,
+                                                     const lv_16sc_t* in_a,
+                                                     const lv_16sc_t* in_b,
+                                                     unsigned int num_points)
+{
+    const unsigned int blocks = num_points / 8;
+    const __m256i real_mask = _mm256_set1_epi32(0xffff);
+    for (unsigned int number = 0; number < blocks; ++number) {
+        const __m256i vec0 = _mm256_loadu_si256((const __m256i*)in_a);
+        const __m256i vec1 = _mm256_loadu_si256((const __m256i*)in_b);
+        const __m256i products = _mm256_mullo_epi16(vec0, vec1);
+        const __m256i real = _mm256_and_si256(
+            _mm256_sub_epi16(products, _mm256_srli_si256(products, 2)), real_mask);
+        const __m256i cross0 = _mm256_mullo_epi16(vec0, _mm256_slli_si256(vec1, 2));
+        const __m256i cross1 = _mm256_mullo_epi16(vec1, _mm256_slli_si256(vec0, 2));
+        const __m256i imag =
+            _mm256_andnot_si256(real_mask, _mm256_add_epi16(cross0, cross1));
+        const __m256i result = _mm256_or_si256(real, imag);
+        _mm256_storeu_si256((__m256i*)out, result);
+        in_a += 8;
+        in_b += 8;
+        out += 8;
+    }
+    volk_16ic_x2_multiply_16ic_generic(out, in_a, in_b, num_points % 8);
+}
+#endif
+
+#ifdef LV_HAVE_AVX512F
+#include <immintrin.h>
+static inline void volk_16ic_x2_multiply_16ic_a_avx512f(lv_16sc_t* out,
+                                                        const lv_16sc_t* in_a,
+                                                        const lv_16sc_t* in_b,
+                                                        unsigned int num_points)
+{
+    const unsigned int blocks = num_points / 16;
+    const __m512i mask = _mm512_set1_epi32(0xffff);
+    for (unsigned int number = 0; number < blocks; ++number) {
+        const __m512i vec0 = _mm512_load_si512((const void*)in_a);
+        const __m512i vec1 = _mm512_load_si512((const void*)in_b);
+        const __m512i imag0 = _mm512_srli_epi32(vec0, 16);
+        const __m512i imag1 = _mm512_srli_epi32(vec1, 16);
+        const __m512i real =
+            _mm512_and_si512(_mm512_sub_epi32(_mm512_mullo_epi32(vec0, vec1),
+                                              _mm512_mullo_epi32(imag0, imag1)),
+                             mask);
+        const __m512i imag =
+            _mm512_slli_epi32(_mm512_add_epi32(_mm512_mullo_epi32(vec0, imag1),
+                                               _mm512_mullo_epi32(imag0, vec1)),
+                              16);
+        const __m512i result = _mm512_or_si512(real, imag);
+        _mm512_store_si512((void*)out, result);
+        in_a += 16;
+        in_b += 16;
+        out += 16;
+    }
+    volk_16ic_x2_multiply_16ic_generic(out, in_a, in_b, num_points % 16);
+}
+#endif /* LV_HAVE_AVX512F */
+
+#ifdef LV_HAVE_AVX512F
+static inline void volk_16ic_x2_multiply_16ic_u_avx512f(lv_16sc_t* out,
+                                                        const lv_16sc_t* in_a,
+                                                        const lv_16sc_t* in_b,
+                                                        unsigned int num_points)
+{
+    const unsigned int blocks = num_points / 16;
+    const __m512i mask = _mm512_set1_epi32(0xffff);
+    for (unsigned int number = 0; number < blocks; ++number) {
+        const __m512i vec0 = _mm512_loadu_si512((const void*)in_a);
+        const __m512i vec1 = _mm512_loadu_si512((const void*)in_b);
+        const __m512i imag0 = _mm512_srli_epi32(vec0, 16);
+        const __m512i imag1 = _mm512_srli_epi32(vec1, 16);
+        const __m512i real =
+            _mm512_and_si512(_mm512_sub_epi32(_mm512_mullo_epi32(vec0, vec1),
+                                              _mm512_mullo_epi32(imag0, imag1)),
+                             mask);
+        const __m512i imag =
+            _mm512_slli_epi32(_mm512_add_epi32(_mm512_mullo_epi32(vec0, imag1),
+                                               _mm512_mullo_epi32(imag0, vec1)),
+                              16);
+        const __m512i result = _mm512_or_si512(real, imag);
+        _mm512_storeu_si512((void*)out, result);
+        in_a += 16;
+        in_b += 16;
+        out += 16;
+    }
+    volk_16ic_x2_multiply_16ic_generic(out, in_a, in_b, num_points % 16);
+}
+#endif
 
 #ifdef LV_HAVE_NEON
 #include <arm_neon.h>
-
 static inline void volk_16ic_x2_multiply_16ic_neon(lv_16sc_t* out,
                                                    const lv_16sc_t* in_a,
                                                    const lv_16sc_t* in_b,
                                                    unsigned int num_points)
 {
-    lv_16sc_t* a_ptr = (lv_16sc_t*)in_a;
-    lv_16sc_t* b_ptr = (lv_16sc_t*)in_b;
-    unsigned int quarter_points = num_points / 4;
-    int16x4x2_t a_val, b_val, c_val;
-    int16x4x2_t tmp_real, tmp_imag;
-    unsigned int number = 0;
-
-    for (number = 0; number < quarter_points; ++number) {
-        a_val = vld2_s16((int16_t*)a_ptr); // a0r|a1r|a2r|a3r || a0i|a1i|a2i|a3i
-        b_val = vld2_s16((int16_t*)b_ptr); // b0r|b1r|b2r|b3r || b0i|b1i|b2i|b3i
-        __VOLK_PREFETCH(a_ptr + 4);
-        __VOLK_PREFETCH(b_ptr + 4);
-
-        // multiply the real*real and imag*imag to get real result
-        // a0r*b0r|a1r*b1r|a2r*b2r|a3r*b3r
-        tmp_real.val[0] = vmul_s16(a_val.val[0], b_val.val[0]);
-        // a0i*b0i|a1i*b1i|a2i*b2i|a3i*b3i
-        tmp_real.val[1] = vmul_s16(a_val.val[1], b_val.val[1]);
-
-        // Multiply cross terms to get the imaginary result
-        // a0r*b0i|a1r*b1i|a2r*b2i|a3r*b3i
-        tmp_imag.val[0] = vmul_s16(a_val.val[0], b_val.val[1]);
-        // a0i*b0r|a1i*b1r|a2i*b2r|a3i*b3r
-        tmp_imag.val[1] = vmul_s16(a_val.val[1], b_val.val[0]);
-
-        // store the results
-        c_val.val[0] = vsub_s16(tmp_real.val[0], tmp_real.val[1]);
-        c_val.val[1] = vadd_s16(tmp_imag.val[0], tmp_imag.val[1]);
-        vst2_s16((int16_t*)out, c_val);
-
-        a_ptr += 4;
-        b_ptr += 4;
+    const unsigned int blocks = num_points / 4;
+    for (unsigned int number = 0; number < blocks; ++number) {
+        const int16x4x2_t vec0 = vld2_s16((const int16_t*)in_a);
+        const int16x4x2_t vec1 = vld2_s16((const int16_t*)in_b);
+        __VOLK_PREFETCH(in_a + 4);
+        __VOLK_PREFETCH(in_b + 4);
+        const int16x4x2_t result = {
+            { vmls_s16(vmul_s16(vec0.val[0], vec1.val[0]), vec0.val[1], vec1.val[1]),
+              vmla_s16(vmul_s16(vec0.val[0], vec1.val[1]), vec0.val[1], vec1.val[0]) }
+        };
+        vst2_s16((int16_t*)out, result);
+        in_a += 4;
+        in_b += 4;
         out += 4;
     }
-
-    for (number = quarter_points * 4; number < num_points; number++) {
-        *out++ = (*a_ptr++) * (*b_ptr++);
-    }
+    volk_16ic_x2_multiply_16ic_generic(out, in_a, in_b, num_points % 4);
 }
-#endif /* LV_HAVE_NEON */
+#endif
 
 #ifdef LV_HAVE_NEONV8
 #include <arm_neon.h>
-
 static inline void volk_16ic_x2_multiply_16ic_neonv8(lv_16sc_t* out,
                                                      const lv_16sc_t* in_a,
                                                      const lv_16sc_t* in_b,
                                                      unsigned int num_points)
 {
-    const lv_16sc_t* a_ptr = in_a;
-    const lv_16sc_t* b_ptr = in_b;
-    unsigned int eighth_points = num_points / 8;
-    unsigned int number;
-
-    /* Use 128-bit registers for 8 complex values per iteration */
-    int16x8x2_t a_val, b_val, c_val;
-    int16x8_t tmp_real, tmp_imag;
-
-    for (number = 0; number < eighth_points; ++number) {
-        a_val = vld2q_s16((int16_t*)a_ptr);
-        b_val = vld2q_s16((int16_t*)b_ptr);
-        __VOLK_PREFETCH(a_ptr + 16);
-        __VOLK_PREFETCH(b_ptr + 16);
-
-        /* real = ar*br - ai*bi */
-        tmp_real = vmulq_s16(a_val.val[0], b_val.val[0]);
-        tmp_real = vmlsq_s16(tmp_real, a_val.val[1], b_val.val[1]);
-
-        /* imag = ar*bi + ai*br */
-        tmp_imag = vmulq_s16(a_val.val[0], b_val.val[1]);
-        tmp_imag = vmlaq_s16(tmp_imag, a_val.val[1], b_val.val[0]);
-
-        c_val.val[0] = tmp_real;
-        c_val.val[1] = tmp_imag;
-        vst2q_s16((int16_t*)out, c_val);
-
-        a_ptr += 8;
-        b_ptr += 8;
+    const unsigned int blocks = num_points / 8;
+    for (unsigned int number = 0; number < blocks; ++number) {
+        const int16x8x2_t vec0 = vld2q_s16((const int16_t*)in_a);
+        const int16x8x2_t vec1 = vld2q_s16((const int16_t*)in_b);
+        __VOLK_PREFETCH(in_a + 16);
+        __VOLK_PREFETCH(in_b + 16);
+        const int16x8x2_t result = {
+            { vmlsq_s16(vmulq_s16(vec0.val[0], vec1.val[0]), vec0.val[1], vec1.val[1]),
+              vmlaq_s16(vmulq_s16(vec0.val[0], vec1.val[1]), vec0.val[1], vec1.val[0]) }
+        };
+        vst2q_s16((int16_t*)out, result);
+        in_a += 8;
+        in_b += 8;
         out += 8;
     }
-
-    for (number = eighth_points * 8; number < num_points; number++) {
-        *out++ = (*a_ptr++) * (*b_ptr++);
-    }
+    volk_16ic_x2_multiply_16ic_generic(out, in_a, in_b, num_points % 8);
 }
-#endif /* LV_HAVE_NEONV8 */
+#endif
 
 #ifdef LV_HAVE_RVV
 #include <riscv_vector.h>

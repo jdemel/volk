@@ -563,6 +563,17 @@ protected:
 };
 class ComplexInteger16BinaryTest : public ComplexIntegerBinaryTestBase<lv_16sc_t>
 {
+protected:
+    void initialize_data() override
+    {
+        ComplexIntegerBinaryTestBase<lv_16sc_t>::initialize_data();
+        if (vec0.size() > 1) {
+            const int16_t minimum = std::numeric_limits<int16_t>::min();
+            vec0[1] = lv_16sc_t(minimum, minimum);
+            vec1[1] = lv_16sc_t(minimum, minimum);
+            expected[1] = std::get<2>(GetParam()).reference(vec0[1], vec1[1]);
+        }
+    }
 };
 class ComplexInteger8BinaryTest : public ComplexIntegerBinaryTestBase<lv_8sc_t>
 {
