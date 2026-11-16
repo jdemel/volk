@@ -12,9 +12,13 @@
  *
  * \b Overview
  *
- * Takes each the input complex vector value to the specified power
- * and stores the results in the return vector. The output is scaled
- * and converted to 16-bit shorts.
+ * Raises each complex input value to the real-valued power and stores the
+ * principal value in the complex output vector. For nonzero input, the phase
+ * is determined by atan2(imaginary, real), including its signed-zero branch
+ * cut along the negative real axis. Zero raised to a positive power is zero;
+ * any input raised to zero is one.
+ * Inputs and the power must be finite, and the squared magnitude must be
+ * representable as a float without overflow or underflow.
  *
  * <b>Dispatcher Prototype</b>
  * \code
@@ -27,34 +31,20 @@
  * \li num_points: The number of samples.
  *
  * \b Outputs
- * \li cVector: The output value as 16-bit shorts.
+ * \li cVector: The complex floating-point output vector.
  *
  * \b Example
  * \code
- * int N = 10000;
- *
- * volk_32fc_s32f_power_32fc();
- *
- * volk_free(x);
+ * lv_32fc_t input[2] = { lv_cmake(3.0f, 4.0f), lv_cmake(1.0f, 1.0f) };
+ * lv_32fc_t output[2];
+ * volk_32fc_s32f_power_32fc(output, input, 2.0f, 2);
  * \endcode
  */
 
 #ifndef INCLUDED_volk_32fc_s32f_power_32fc_a_H
 #define INCLUDED_volk_32fc_s32f_power_32fc_a_H
 
-#include <inttypes.h>
 #include <math.h>
-#include <stdio.h>
-
-//! raise a complex float to a real float power
-static inline lv_32fc_t __volk_s32fc_s32f_power_s32fc_a(const lv_32fc_t exp,
-                                                        const float power)
-{
-    const float arg = power * atan2f(lv_creal(exp), lv_cimag(exp));
-    const float mag =
-        powf(lv_creal(exp) * lv_creal(exp) + lv_cimag(exp) * lv_cimag(exp), power / 2);
-    return mag * lv_cmake(-cosf(arg), sinf(arg));
-}
 
 #ifdef LV_HAVE_GENERIC
 
@@ -63,12 +53,13 @@ static inline void volk_32fc_s32f_power_32fc_generic(lv_32fc_t* cVector,
                                                      const float power,
                                                      unsigned int num_points)
 {
-    lv_32fc_t* cPtr = cVector;
-    const lv_32fc_t* aPtr = aVector;
-    unsigned int number = 0;
-
-    for (number = 0; number < num_points; number++) {
-        *cPtr++ = __volk_s32fc_s32f_power_s32fc_a((*aPtr++), power);
+    for (unsigned int number = 0; number < num_points; ++number) {
+        const float real = lv_creal(aVector[number]);
+        const float imag = lv_cimag(aVector[number]);
+        const float magnitude_squared = real * real + imag * imag;
+        const float magnitude = powf(magnitude_squared, power * 0.5f);
+        const float angle = power * atan2f(imag, real);
+        cVector[number] = lv_cmake(magnitude * cosf(angle), magnitude * sinf(angle));
     }
 }
 

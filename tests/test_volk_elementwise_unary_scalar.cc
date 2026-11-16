@@ -354,6 +354,51 @@ INSTANTIATE_TEST_SUITE_P(
           volk_32fc_s32f_power_32fc_get_func_desc() } })),
     ElementwiseName());
 
+class ComplexPowerEdgeTest : public ::testing::TestWithParam<std::string>
+{
+};
+
+TEST_P(ComplexPowerEdgeTest, finite_edge_cases)
+{
+    struct Case {
+        lv_32fc_t input;
+        float power;
+        lv_32fc_t expected;
+    };
+    const std::array cases{
+        Case{ { 0.0f, 0.0f }, 0.0f, { 1.0f, 0.0f } },
+        Case{ { 0.0f, 0.0f }, 0.5f, { 0.0f, 0.0f } },
+        Case{ { 1.0f, 0.0f }, 0.0f, { 1.0f, 0.0f } },
+        Case{ { 3.0f, 4.0f }, 1.0f, { 3.0f, 4.0f } },
+        Case{ { 3.0f, 4.0f }, -1.0f, { 0.12f, -0.16f } },
+        Case{ { 3.0f, 4.0f }, 0.5f, { 2.0f, 1.0f } },
+        Case{ { -1.0f, 0.0f }, 0.5f, { 0.0f, 1.0f } },
+        Case{ { -1.0f, -0.0f }, 0.5f, { 0.0f, -1.0f } },
+    };
+    const size_t offset = is_aligned_implementation_name(GetParam()) ? 0 : 1;
+    volk::vector<lv_32fc_t> input(offset + 1);
+    volk::vector<lv_32fc_t> output(offset + 1);
+    for (const auto& test : cases) {
+        input[offset] = test.input;
+        volk_32fc_s32f_power_32fc_manual(output.data() + offset,
+                                         input.data() + offset,
+                                         test.power,
+                                         1,
+                                         GetParam().c_str());
+        const auto actual = output[offset];
+        const double error =
+            std::abs(std::complex<double>(actual) - std::complex<double>(test.expected));
+        const double scale = std::abs(std::complex<double>(test.expected));
+        EXPECT_LE(error, 1e-6 * scale)
+            << "input=" << test.input << " power=" << test.power << " actual=" << actual;
+    }
+}
+
+INSTANTIATE_TEST_SUITE_P(Elementwise,
+                         ComplexPowerEdgeTest,
+                         testing::ValuesIn(get_kernel_implementation_name_list(
+                             volk_32fc_s32f_power_32fc_get_func_desc())));
+
 class ComplexSpectrumTest : public ScaledComplexTestBase<lv_32fc_t, float>
 {
 };
