@@ -487,6 +487,29 @@ INSTANTIATE_TEST_SUITE_P(
     ElementwiseName());
 class Complex16MagnitudeTest : public ComplexUnaryTestBase<lv_16sc_t, int16_t>
 {
+protected:
+    void run()
+    {
+        const auto& kernel = std::get<2>(GetParam());
+        kernel.kernel(output.data(),
+                      input.data(),
+                      static_cast<unsigned int>(vector_length),
+                      implementation_name.c_str());
+        for (size_t i = 0; i < input.size(); ++i) {
+            const double magnitude = std::hypot(static_cast<double>(input[i].real()),
+                                                static_cast<double>(input[i].imag()));
+            const double lower = std::floor(magnitude);
+            const double upper = lower + 1.0;
+            const bool near_half = std::abs(magnitude - (lower + 0.5)) <= 0.1;
+            const double actual = output[i];
+            if (actual != std::nearbyint(magnitude) &&
+                !(near_half && (actual == lower || actual == upper))) {
+                ADD_FAILURE() << "index " << i << ": input " << input[i] << ", magnitude "
+                              << magnitude << ", actual " << output[i];
+                return;
+            }
+        }
+    }
 };
 TEST_P(Complex16MagnitudeTest, run)
 {
