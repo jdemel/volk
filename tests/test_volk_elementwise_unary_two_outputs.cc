@@ -47,9 +47,9 @@ protected:
                                       input.data(),
                                       static_cast<unsigned int>(vector_length),
                                       implementation_name.c_str());
-        EXPECT_TRUE(AreFloatingPointArraysEqualWithAbsoluteError<float>(
+        EXPECT_TRUE(AreFloatingPointArraysEqualWithTolerance<float>(
             expected_sin, result_sin, 2e-5f));
-        EXPECT_TRUE(AreFloatingPointArraysEqualWithAbsoluteError<float>(
+        EXPECT_TRUE(AreFloatingPointArraysEqualWithTolerance<float>(
             expected_cos, result_cos, 2e-5f));
     }
     volk::vector<float> input_storage, sin_storage, cos_storage, expected_sin,
@@ -115,9 +115,9 @@ protected:
             EXPECT_TRUE(AreIntegerArraysEqual<Out>(expected0, output0));
             EXPECT_TRUE(AreIntegerArraysEqual<Out>(expected1, output1));
         } else {
-            EXPECT_TRUE(AreFloatingPointArraysEqualWithAbsoluteError<Out>(
+            EXPECT_TRUE(AreFloatingPointArraysEqualWithTolerance<Out>(
                 expected0, output0, 0.0f));
-            EXPECT_TRUE(AreFloatingPointArraysEqualWithAbsoluteError<Out>(
+            EXPECT_TRUE(AreFloatingPointArraysEqualWithTolerance<Out>(
                 expected1, output1, 0.0f));
         }
     }

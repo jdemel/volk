@@ -16,7 +16,8 @@
  *
  * c[i] = pow(a[i], b[i])
  *
- * Note that the aVector values must be positive; otherwise the output may be inaccurate.
+ * Note that the aVector values must be positive, i.e. > 0.0; otherwise the output may be
+ * inaccurate.
  *
  * <b>Dispatcher Prototype</b>
  * \code
@@ -62,8 +63,6 @@
 
 #include <inttypes.h>
 #include <math.h>
-#include <stdio.h>
-#include <stdlib.h>
 
 #define POW_POLY_DEGREE 3
 

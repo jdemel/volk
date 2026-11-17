@@ -17,7 +17,7 @@ TEST(VolkComparisons, RealAbsoluteErrorSpecialValues)
     const float nan = std::numeric_limits<float>::quiet_NaN();
     const float inf = std::numeric_limits<float>::infinity();
     const auto check = [](float a, float b) {
-        return AreFloatingPointArraysEqualWithAbsoluteError<float>(
+        return AreFloatingPointArraysEqualWithTolerance<float>(
             std::array{ a }, std::array{ b }, 0.5f);
     };
     EXPECT_TRUE(check(nan, nan));

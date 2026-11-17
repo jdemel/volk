@@ -17,8 +17,10 @@
 #include <chrono>
 #include <cmath>
 #include <complex>
+#include <optional>
 #include <span>
 #include <tuple>
+#include <variant>
 
 static constexpr std::array<size_t, 22> default_vector_sizes{
     0,  1,  3,  4,  5,  7,  8,   9,   15,  16,   17,
@@ -177,24 +179,47 @@ AreComplexFloatingPointArraysEqualWithAbsoluteError(std::span<const T> expected,
 
 template <class T>
 ::testing::AssertionResult
-AreFloatingPointArraysEqualWithAbsoluteError(std::span<const T> expected,
-                                             std::span<const T> actual,
-                                             const float absolute_error = 1.0e-7f)
+AreFloatingPointArraysEqualWithTolerance(std::span<const T> expected,
+                                         std::span<const T> actual,
+                                         const float absolute_error = 1.0e-7f,
+                                         const std::optional<T> relative = std::nullopt)
 {
-    const auto equal = [absolute_error](const T lhs, const T rhs) {
+    const auto describe = [tolerance = relative.value_or(static_cast<T>(absolute_error)),
+                           label = relative ? "relative" : "absolute"](
+                              auto& result, const T lhs, const T rhs, const size_t i) {
+        result << fmt::format("@{}: expected {}, actual {}, {} error tolerance {}",
+                              i,
+                              lhs,
+                              rhs,
+                              label,
+                              tolerance);
+    };
+    const auto relative_equal = [tolerance = relative.value_or(T{})](const T lhs,
+                                                                     const T rhs) {
         return (::testing::internal::FloatingPoint(lhs).is_nan() and
                 ::testing::internal::FloatingPoint(rhs).is_nan()) or
+               lhs == rhs or
+               (std::isfinite(lhs) and std::isfinite(rhs) and
+                ::testing::internal::DoubleNearPredFormat(
+                    "expected",
+                    "actual",
+                    "relative error bound",
+                    lhs,
+                    rhs,
+                    static_cast<double>(tolerance) * std::abs(static_cast<double>(lhs))));
+    };
+    const auto absolute_equal = [absolute_error](const T lhs, const T rhs) {
+        return (::testing::internal::FloatingPoint(lhs).is_nan() and
+                ::testing::internal::FloatingPoint(rhs).is_nan()) or
+               lhs == rhs or
                ::testing::internal::DoubleNearPredFormat(
                    "expected", "actual", "absolute_error", lhs, rhs, absolute_error);
     };
-    const auto describe =
-        [absolute_error](auto& result, const T lhs, const T rhs, const size_t i) {
-            result << fmt::format("@{}: {} != {}, error: {} > {}",
-                                  i,
-                                  lhs,
-                                  rhs,
-                                  std::abs(lhs - rhs),
-                                  absolute_error);
-        };
-    return compare_volk_arrays(expected, actual, equal, describe);
+    const std::variant<decltype(relative_equal), decltype(absolute_equal)> equal =
+        relative ? decltype(equal){ relative_equal } : decltype(equal){ absolute_equal };
+    return std::visit(
+        [&](const auto& compare) {
+            return compare_volk_arrays(expected, actual, compare, describe);
+        },
+        equal);
 }

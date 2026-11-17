@@ -167,7 +167,7 @@ protected:
             static_cast<unsigned int>(vector_length),
             implementation_name.c_str());
         EXPECT_TRUE(
-            AreFloatingPointArraysEqualWithAbsoluteError<float>(expected, output, 1e-3f));
+            AreFloatingPointArraysEqualWithTolerance<float>(expected, output, 1e-3f));
     }
     volk::vector<lv_32fc_t> input_storage;
     volk::vector<float> output_storage, expected;

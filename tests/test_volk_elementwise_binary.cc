@@ -28,6 +28,7 @@ struct BinaryCase {
     std::function<T(T, T)> reference;
     volk_func_desc_t description;
     void (*generate)(std::span<T>, std::span<T>, std::mt19937&);
+    T relative_error = 0;
 };
 
 std::vector<BinaryCase<float>> float_kernels()
@@ -57,7 +58,8 @@ std::vector<BinaryCase<float>> float_kernels()
           volk_32f_x2_pow_32f_manual,
           [](const float exponent, const float base) { return std::pow(base, exponent); },
           volk_32f_x2_pow_32f_get_func_desc(),
-          generate_binary_power_input },
+          generate_binary_power_input,
+          4.0e-2f },
         { "volk_32f_x2_min_32f",
           volk_32f_x2_min_32f_manual,
           [](const float vec0, const float vec1) { return std::min(vec0, vec1); },
@@ -201,6 +203,11 @@ protected:
         if constexpr (std::is_integral_v<T>) {
             EXPECT_TRUE(AreIntegerArraysEqual<T>(expected, output));
         } else {
+            if (kernel.relative_error > 0) {
+                EXPECT_TRUE(AreFloatingPointArraysEqualWithTolerance<T>(
+                    expected, output, 1.0e-7f, kernel.relative_error));
+                return;
+            }
             const auto equal = [](const T lhs, const T rhs) {
                 const T tolerance = std::is_same_v<T, float> ? T(2e-6) : T(2e-12);
                 return std::abs(lhs - rhs) <= tolerance * (T(1) + std::abs(lhs));

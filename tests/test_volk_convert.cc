@@ -425,7 +425,7 @@ protected:
 
         if constexpr (std::is_floating_point_v<output_type>) {
             EXPECT_TRUE(
-                AreFloatingPointArraysEqualWithAbsoluteError<output_type>(expected, out));
+                AreFloatingPointArraysEqualWithTolerance<output_type>(expected, out));
         } else if constexpr (requires { expected.front().real(); }) {
             if constexpr (std::is_floating_point_v<decltype(expected.front().real())>) {
                 EXPECT_TRUE(

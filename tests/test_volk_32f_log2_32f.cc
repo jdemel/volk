@@ -95,7 +95,7 @@ protected:
                                  values.data(),
                                  static_cast<unsigned int>(values.size()),
                                  implementation.data());
-        EXPECT_TRUE(AreFloatingPointArraysEqualWithAbsoluteError<float>(
+        EXPECT_TRUE(AreFloatingPointArraysEqualWithTolerance<float>(
             expected, output, ABSOLUTE_LOG_TEST_ERROR));
     }
 

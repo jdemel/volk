@@ -106,7 +106,7 @@ protected:
                        result.end(),
                        result_magnitude.begin(),
                        [](const auto value) { return std::abs(value); });
-        EXPECT_TRUE(AreFloatingPointArraysEqualWithAbsoluteError<float>(
+        EXPECT_TRUE(AreFloatingPointArraysEqualWithTolerance<float>(
             expected_magnitude, result_magnitude, absolute_magnitue_error));
         EXPECT_TRUE(
             AreComplexFloatingPointArraysEqualWithAbsoluteError<std::complex<float>>(

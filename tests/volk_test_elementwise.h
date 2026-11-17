@@ -250,6 +250,7 @@ inline void generate_complex_binary_input(std::span<lv_32fc_t> vec0,
     generate_complex_float_input(vec0, engine);
     generate_complex_float_input(vec1, engine);
 }
+
 inline void generate_complex_division_input(std::span<lv_32fc_t> vec0,
                                             std::span<lv_32fc_t> vec1,
                                             std::mt19937& engine)
@@ -259,6 +260,7 @@ inline void generate_complex_division_input(std::span<lv_32fc_t> vec0,
         return std::abs(value) < 1.0f ? lv_32fc_t(1.0f, 0.0f) : value;
     });
 }
+
 inline void generate_complex_real_input(std::span<lv_32fc_t> vec0,
                                         std::span<float> vec1,
                                         std::mt19937& engine)
@@ -273,6 +275,7 @@ inline void generate_scalar_input(std::span<float> values, std::mt19937& engine)
     std::normal_distribution<float> distribution(0.0f, 1000000.0f);
     generate_normal_input(values, engine, distribution);
 }
+
 inline void generate_power_input(std::span<float> values, std::mt19937& engine)
 {
     std::normal_distribution<float> distribution(0.0f, 100.0f);
@@ -283,21 +286,16 @@ inline void generate_power_input(std::span<float> values, std::mt19937& engine)
     const std::array edges{ 1.0f, 0.5f, 2.0f, 0.125f };
     std::copy_n(edges.begin(), std::min(values.size(), edges.size()), values.begin());
 }
-inline void generate_binary_power_input(std::span<float> vec0,
-                                        std::span<float> vec1,
+
+inline void generate_binary_power_input(std::span<float> exponent,
+                                        std::span<float> base,
                                         std::mt19937& engine)
 {
-    std::normal_distribution<float> distribution(0.0f, 2.0f);
-    generate_normal_input(vec0, engine, distribution);
-    generate_normal_input(vec1, engine, distribution);
-    std::transform(vec1.begin(), vec1.end(), vec1.begin(), [](const float value) {
-        return std::max(std::abs(value), 0.125f);
-    });
-    const std::array edges{ std::pair{ 0.0f, 1.0f },
-                            std::pair{ 1.0f, 2.0f },
-                            std::pair{ -1.0f, 2.0f },
-                            std::pair{ 2.0f, 0.5f } };
-    set_binary_edges(vec0, vec1, edges);
+    std::uniform_real_distribution<float> base_distribution{ 1.0e-2f, 100.0f };
+    std::uniform_real_distribution<float> exponent_distribution{ -18.0f, 18.0f };
+    std::generate(base.begin(), base.end(), [&] { return base_distribution(engine); });
+    std::generate(
+        exponent.begin(), exponent.end(), [&] { return exponent_distribution(engine); });
 }
 
 inline void generate_complex16_magnitude_input(std::span<lv_16sc_t> values,

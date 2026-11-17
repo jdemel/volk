@@ -44,7 +44,6 @@
 
 #include <inttypes.h>
 #include <math.h>
-#include <stdio.h>
 
 #ifdef LV_HAVE_GENERIC
 
